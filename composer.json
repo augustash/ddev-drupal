@@ -5,12 +5,12 @@
     "extra": {
         "drupal-scaffold": {
             "file-mapping": {
-                "[project-root]/.ddev/config.yaml": {
+                "[project-root]/config.yaml": {
                     "mode": "replace",
                     "path": "config.yaml",
                     "overwrite": false
                 },
-                "[project-root]/.ddev/providers/pantheon.yaml": {
+                "[project-root]/providers/pantheon.yaml": {
                     "mode": "replace",
                     "path": "config.yaml",
                     "overwrite": false
