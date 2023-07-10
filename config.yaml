@@ -1,11 +1,11 @@
-name: ind
+name: [client-code]
 type: drupal9
 docroot: web
 database:
   type: mariadb
   version: "10.5"
 web_environment:
-  - project=aaiind.live
+  - project=[pantheon-site-name].live
 mutagen_enabled: true
 php_version: 8.1
 nodejs_version: "14"

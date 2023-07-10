@@ -13,7 +13,7 @@ Edit config.yaml:
 If you need solr, leave as-is.
 
 # Remove Solr
-Remove /solr, and /.ddev/docker-compose.solr.yaml.
+Remove /.ddev/solr, and /.ddev/docker-compose.solr.yaml.
 Search .ddev for '[solrRemove]', and remove code.
 
 Solr collection/core will be automatically created, named 'search'.

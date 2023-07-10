@@ -1,5 +1,21 @@
 {
-  "name": "augustash/ddev",
-  "description": "AugustAsh ddev installer.",
-  "type": "drupal-ddev"
+    "name": "augustash/ddev",
+    "description": "AugustAsh ddev installer.",
+    "type": "drupal-ddev",
+    "extra": {
+        "drupal-scaffold": {
+            "file-mapping": {
+                "[project-root]/.ddev/config.yaml": {
+                    "mode": "replace",
+                    "path": "config.yaml",
+                    "overwrite": false
+                },
+                "[project-root]/.ddev/providers/pantheon.yaml": {
+                    "mode": "replace",
+                    "path": "config.yaml",
+                    "overwrite": false
+                },
+            }
+        }
+    }
 }
