@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+## Description: Open Visual Studio Code with the current project
+## Usage: code
+## Example: "ddev code"
+
+# Example is macOS-specific, but easy to adapt to any OS
+/Applications/Visual\ Studio\ Code.app/Contents/Resources/app/bin/code "${DDEV_APPROOT}"

@@ -1,0 +1,25 @@
+name: ind
+type: drupal9
+docroot: web
+database:
+  type: mariadb
+  version: "10.5"
+web_environment:
+  - project=aaiind.live
+mutagen_enabled: true
+php_version: 8.1
+nodejs_version: "14"
+webimage_extra_packages: [build-essential, libnotify-bin, make, python]
+
+# Many ddev commands can be extended to run tasks before or after the
+# ddev command is executed, for example "post-start", "post-import-db",
+# "pre-composer", "post-composer"
+# See https://ddev.readthedocs.io/en/stable/users/extending-commands/ for more
+# information on the commands that can be extended and the tasks you can define
+# for them. Example:
+hooks:
+  post-start:
+    - exec-host: ddev solrcollection # [solrRemove]
+  # post-import-db:
+  #   - exec: drush cim -y
+  #   - exec: drush cr

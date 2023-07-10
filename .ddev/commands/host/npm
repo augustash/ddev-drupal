@@ -1,0 +1,8 @@
+#!/bin/bash
+
+## Description: Run npm inside the web container in the root of the project (Use --prefix for another directory)
+## Usage: npm [flags] [args]
+## Example: "ddev npm install" or "ddev npm install learna" or "ddev npm --prefix ./web/core/ install learna"
+
+ddev exec --raw bash -ic "npm --prefix ./web/themes/ash '$@'"
+ddev mutagen sync 2>/dev/null

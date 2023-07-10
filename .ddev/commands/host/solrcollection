@@ -1,0 +1,31 @@
+#!/bin/bash
+
+## Description: Build solr collection.
+## Usage: solrcollection
+## Example: "ddev solrcollection"
+
+get_active_server() {
+  servers=$(ddev exec drush sapi-sl --field=id)
+
+  for server in $servers; do
+    if [[ $server == *'pantheon'* ]]; then
+      continue
+    fi
+
+    if [[ ! $server ]]; then
+      echo
+      echo 'There is no local search api server, create one and then run ddev solrcollection, or ddev restart.';
+      echo
+    else
+      ddev exec drush solr-upload-conf "$server" --alias=search -q
+    fi
+  done
+}
+
+# Check if any tables exist in database.
+# If not, pull database.
+ddev db
+
+ddev exec drush en search_api_solr_admin -y -q
+
+get_active_server;

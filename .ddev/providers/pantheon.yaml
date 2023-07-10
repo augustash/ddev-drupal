@@ -1,0 +1,128 @@
+#ddev-generated
+# Example Pantheon.io provider configuration.
+# This example is Drupal/drush oriented,
+# but can be adapted for other CMSs supported by Pantheon
+
+# To use this configuration:
+#
+# 1. Get your Pantheon.io machine token:
+#    a. Login to your Pantheon Dashboard, and [Generate a Machine Token](https://pantheon.io/docs/machine-tokens/) for ddev to use.
+#    b. Add the API token to the `web_environment` section in your global ddev configuration at ~/.ddev/global_config.yaml
+#
+#    ```
+#    web_environment:
+#    - TERMINUS_MACHINE_TOKEN=abcdeyourtoken
+#    ```
+#
+# 2. Choose a Pantheon site and environment you want to use with ddev. You can usually use the site name, but in some environments you may need the site uuid, which is the long 3rd component of your site dashboard URL. So if the site dashboard is at <https://dashboard.pantheon.io/sites/009a2cda-2c22-4eee-8f9d-96f017321555#dev/>, the site ID is 009a2cda-2c22-4eee-8f9d-96f017321555.
+#
+# 3. On the pantheon dashboard, make sure that at least one backup has been created. (When you need to refresh what you pull, do a new backup.)
+#
+# 4. Make sure your public ssh key is configured in Pantheon (Account->SSH Keys)
+#
+# 5. Check out project codebase from Pantheon. Enable the "Git Connection Mode" and use `git clone` to check out the code locally.
+#
+# 6. Verify that drush is installed in your project, `ddev composer require drush/drush`
+#
+# 7. Configure the local checkout for ddev using `ddev config`
+#
+# 8. In your project's .ddev/providers directory, copy pantheon.yaml.example to pantheon.yaml and edit the "project" under `environment_variables` (change it from `yourproject.dev`). If you want to use a different environment than "dev", change `dev` to the name of the environment.
+#
+# 9. `ddev restart`
+#
+# 10. Run `ddev pull pantheon`. The ddev environment  download the Pantheon database and files, and import the database and files into the ddev environment. You should now be able to access the project locally.
+#
+# 11. Optionally use `ddev push pantheon` to push local files and database to Pantheon. Note that `ddev push` is a command that can potentially damage your production site, so this is not recommended.
+#
+
+# Debugging: Use `ddev exec terminus auth:whoami` to see what terminus knows about
+# `ddev exec terminus site:list` will show available sites
+
+auth_command:
+  command: |
+    set -eu -o pipefail
+    ssh-add -l >/dev/null || ( echo "Please 'ddev auth ssh' before running this command." && exit 1 )
+    if ! command -v drush >/dev/null ; then echo "Please make sure your project contains drush, ddev composer require drush/drush" && exit 1; fi
+    if [ -z "${TERMINUS_MACHINE_TOKEN:-}" ]; then echo "Please make sure you have set TERMINUS_MACHINE_TOKEN in ~/.ddev/global_config.yaml" && exit 1; fi
+    terminus auth:login --machine-token="${TERMINUS_MACHINE_TOKEN}" || ( echo "terminus auth login failed, check your TERMINUS_MACHINE_TOKEN" && exit 1 )
+    terminus aliases 2>/dev/null
+
+db_pull_command:
+  command: |
+    set -x   # You can enable bash debugging output by uncommenting
+    set -eu -o pipefail
+    ls /var/www/html/.ddev >/dev/null # This just refreshes stale NFS if possible
+    pushd /var/www/html/.ddev/.downloads >/dev/null
+    connection=$(terminus connection:info ${project} --field='MySQL Command')
+    connection=${connection/'mysql'/'mysqldump -v'}
+    eval "$connection --single-transaction --default-character-set=utf8mb4 --quick | gzip > db.sql.gz"
+
+files_pull_command:
+  command: |
+    NORM=`tput sgr0`
+    BOLD=`tput bold`
+    REV=`tput smso`
+    # set -x   # You can enable bash debugging output by uncommenting
+    set -eu -o pipefail
+    ls /var/www/html/.ddev >/dev/null # This just refreshes stale NFS if possible
+    pushd /var/www/html/.ddev/.downloads >/dev/null;
+    PANTHEON_SITE=${project}
+    IFS='.' read -a PANTHEON_PARTS <<< ${PANTHEON_SITE}
+    PANTHEON_ID=${PANTHEON_PARTS[0]:-"$PANTHEON_ID"}
+    PANTHEON_ENV=${PANTHEON_PARTS[1]:-"$PANTHEON_ENV"}
+    PANTHEON_INFO="$(terminus site:info $PANTHEON_ID --format=tsv)"
+    PANTHEON_ARRAY=( $PANTHEON_INFO )
+    PANTHEON_UUID=${PANTHEON_ARRAY[0]}
+    echo "${BOLD}Downloading files from Pantheon...${NORM}"
+    rsync -rLvz --copy-unsafe-links --size-only --ipv4 --progress --exclude="/rugs/composites" --exclude="/php" --exclude="/styles" --exclude="/css" --exclude="/js" --exclude="/webform" --include="*/" --include="*.jpg" --include="*.jpeg" --include="*.gif" --include="*.png" --include="*.svg" --include="*.eot" --include="*.ttf" --include="*.woff" --include="*.woff2" --include="*.json" --include="*.css" --include="/exo-file/*" --exclude="*" -e 'ssh -p 2222' "$PANTHEON_ENV.$PANTHEON_UUID@appserver.$PANTHEON_ENV.$PANTHEON_UUID.drush.in:files/" /var/www/html/web/sites/default/files
+
+files_import_command:
+  command: |
+    # Do nothing. Files have already been merged.
+
+# Optionally run `ddev push pantheon --skip-files` to push only the database.
+db_push_command:
+  command: |
+    NORM=`tput sgr0`
+    BOLD=`tput bold`
+    REV=`tput smso`
+    PANTHEON_SITE=${project}
+    IFS='.' read -a PANTHEON_PARTS <<< ${PANTHEON_SITE}
+    PANTHEON_ID=${PANTHEON_PARTS[0]:-"$PANTHEON_ID"}
+    PANTHEON_ENV=${PANTHEON_PARTS[1]:-"$PANTHEON_ENV"}
+    PANTHEON_INFO="$(terminus site:info $PANTHEON_ID --format=tsv)"
+    PANTHEON_ARRAY=( $PANTHEON_INFO )
+    PANTHEON_UUID=${PANTHEON_ARRAY[0]}
+    FILENAME=db.sql.gz
+    echo "${BOLD}Uploading temporary database to Pantheon...${NORM}"
+    sftp -o Port=2222 $PANTHEON_ENV.$PANTHEON_UUID@appserver.$PANTHEON_ENV.$PANTHEON_UUID.drush.in << EOT
+    mkdir files/$PANTHEON_UUID
+    put /var/www/html/.ddev/.downloads/$FILENAME files/$PANTHEON_UUID
+    bye
+    quit
+    EOT
+    echo "${BOLD}Importing database to Pantheon...${NORM}"
+    terminus import:database "$PANTHEON_SITE" "http://$PANTHEON_ENV-$PANTHEON_ID.pantheonsite.io/sites/default/files/$PANTHEON_UUID/$FILENAME" -y
+    echo "${BOLD}Removing temporary database from Pantheon...${NORM}"
+    sftp -o Port=2222 $PANTHEON_ENV.$PANTHEON_UUID@appserver.$PANTHEON_ENV.$PANTHEON_UUID.drush.in << EOT
+    rm files/$PANTHEON_UUID/*
+    rmdir files/$PANTHEON_UUID
+    bye
+    quit
+    EOT
+
+# Optionally run `ddev push pantheon --skip-db` to push only the files.
+files_push_command:
+  command: |
+    NORM=`tput sgr0`
+    BOLD=`tput bold`
+    REV=`tput smso`
+    PANTHEON_SITE=${project}
+    IFS='.' read -a PANTHEON_PARTS <<< ${PANTHEON_SITE}
+    PANTHEON_ID=${PANTHEON_PARTS[0]:-"$PANTHEON_ID"}
+    PANTHEON_ENV=${PANTHEON_PARTS[1]:-"$PANTHEON_ENV"}
+    PANTHEON_INFO="$(terminus site:info $PANTHEON_ID --format=tsv)"
+    PANTHEON_ARRAY=( $PANTHEON_INFO )
+    PANTHEON_UUID=${PANTHEON_ARRAY[0]}
+    echo "${BOLD}Uploading files to Pantheon...${NORM}"
+    rsync -rLvz --size-only --ipv4 --progress --exclude="/php" --exclude="/styles" --exclude="/css" --exclude="/js" -e 'ssh -p 2222' "/var/www/html/web/sites/default/files/." --temp-dir=~/tmp/ "$PANTHEON_ENV.$PANTHEON_UUID@appserver.$PANTHEON_ENV.$PANTHEON_UUID.drush.in:files/"

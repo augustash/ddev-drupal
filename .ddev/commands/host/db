@@ -1,0 +1,14 @@
+#!/bin/bash
+
+## Description: Pull pantheon database.
+## Usage: db
+## Example: "ddev db"
+
+# Check if any tables exist in database.
+# If not, pull database.
+
+if [[ ! $(ddev drush sqlq "USE db; SHOW tables") ]]; then
+  echo 'No database is installed, pulling.'
+  ddev auth ssh
+  ddev pull pantheon --skip-files -y
+fi
