@@ -14,6 +14,6 @@
         }
     },
     "scripts": {
-      "post-package-install": "scripts/setBaseConfiguration"
+      "drupal-scaffold": "bash scripts/setBaseConfiguration"
     }
 }
