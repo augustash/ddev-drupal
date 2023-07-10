@@ -14,7 +14,7 @@
                     "mode": "replace",
                     "path": "config.yaml",
                     "overwrite": false
-                },
+                }
             }
         }
     }
