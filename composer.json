@@ -5,6 +5,7 @@
     "extra": {
         "drupal-scaffold": {
             "file-mapping": {
+                "[project-root]/commands/host/code": "*",
                 "[project-root]/docker-compose.browsersync.yaml": "docker-compose.browsersync.yaml",
                 "[project-root]/docker-compose.solr.yaml": "docker-compose.solr.yaml",
                 "[project-root]/config.yaml": {
@@ -14,7 +15,7 @@
                 },
                 "[project-root]/providers/pantheon.yaml": {
                     "mode": "replace",
-                    "path": "pantheon.yaml",
+                    "path": "providers/pantheon.yaml",
                     "overwrite": false
                 }
             }
