@@ -12,5 +12,8 @@
                 }
             }
         }
+    },
+    "scripts": {
+      "post-package-install": "scripts/setBaseConfiguration"
     }
 }

@@ -1,0 +1,30 @@
+#!/bin/zsh
+
+removeSolr() {
+  if [[ $1 == 'n' || $1 == 'no' ]]; then
+    rm -rf solr docker-compose.solr.yaml
+    sed "s/post-start:/# post-start:" config.yaml
+    sed "s/  -exec-host: ddev solrcollection/#  -exec-host: ddev solrcollection" config.yaml
+    echo 'Solr removed from ddev.'
+  elif [[ $1 == 'y' || $1 == 'yes' ]]; then
+    echo "You're all set."
+  else 
+    echo "Answer should be y, yes, n, no."
+    read answer
+
+    removeSolr $answer
+  fi
+}
+
+echo 'Client code?'
+read client_code
+sed "s/[client-code]/$client_code" config.yaml
+
+echo 'Project name?'
+read project_name
+sed "s/[pantheon-site-name]/$project_name" config.yaml
+
+echo 'Do you want solr installed? (y/n)'
+read answer
+
+removeSolr $answer
