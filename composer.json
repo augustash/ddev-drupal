@@ -27,6 +27,6 @@
         }
     },
     "scripts": {
-        "config": ".ddev/scripts/setBaseConfiguration"
+        "config": "SHELL_INTERACTIVE=true .ddev/scripts/setBaseConfiguration"
     }
 }
