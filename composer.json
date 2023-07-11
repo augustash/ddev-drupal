@@ -27,6 +27,6 @@
         }
     },
     "scripts": {
-        "drupal-scaffold": "SHELL_INTERACTIVE=true .ddev/scripts/setBaseConfiguration"
+        "post-package-install": "SHELL_INTERACTIVE=true .ddev/scripts/setBaseConfiguration"
     }
 }
