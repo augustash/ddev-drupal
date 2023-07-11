@@ -27,6 +27,6 @@
         }
     },
     "scripts": {
-        "drupal-scaffold": "echo hello"
+        "config": ".ddev/scripts/setBaseConfiguration"
     }
 }
