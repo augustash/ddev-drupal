@@ -1,7 +1,7 @@
 {
     "name": "augustash/ddev",
     "description": "AugustAsh ddev installer.",
-    "type": "project",
+    "type": "drupal-module",
     "extra": {
         "drupal-scaffold": {
             "file-mapping": {
