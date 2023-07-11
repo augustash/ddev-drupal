@@ -33,5 +33,4 @@ echo
 echo 'Do you want solr installed? (y/n)'
 read answer
 echo
-
 removeSolr $answer

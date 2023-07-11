@@ -19,7 +19,7 @@ webimage_extra_packages: [build-essential, libnotify-bin, make, python]
 # for them. Example:
 hooks:
   post-start:
-    - exec-host: ddev solrcollection # [solrRemove]
+    -exec-host: ddev solrcollection
   # post-import-db:
   #   - exec: drush cim -y
   #   - exec: drush cr
