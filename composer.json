@@ -1,10 +1,11 @@
 {
     "name": "augustash/ddev",
     "description": "AugustAsh ddev installer.",
-    "type": "drupal-module",
+    "type": "project",
     "extra": {
         "drupal-scaffold": {
             "file-mapping": {
+                "[project-root]/.ddev/commands/host/code": "commands/host/code",
                 "[project-root]/.ddev/config.yaml": {
                     "mode": "replace",
                     "path": "config.yaml",
