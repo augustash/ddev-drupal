@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/bin/bash
 
 removeSolr() {
   if [[ $1 == 'n' || $1 == 'no' ]]; then
