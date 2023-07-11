@@ -42,7 +42,26 @@ You will be prompted to install solr. If you select no, solr will be removed fro
 
 Collection/core will be automatically created. Collection/core is aliased to 'search'.
 
-Copy solr settings from [client-code].settings.local.php to settings.local.php. They are commented as 'Search api local configuration overrides.'.
+Add below code to [client-code].settings.local.php(example file), and settings.local.php.
+  Create/assign server/index names and configuration overrides accordingly.
+  Our setups are usually an index of global and server of local.
+
+
   todo: automatically write settings to settings.local.php.
+
+```
+/**
+ * Search api local configuration overrides.
+ */
+$config['search_api.index.global']['server'] = 'local';
+$config['search_api.server.local']['status'] = TRUE;
+$config['search_api.server.local']['backend_config']['connector'] = 'solr_cloud_basic_auth';
+$config['search_api.server.local']['backend_config']['connector_config']['scheme'] = 'http';
+$config['search_api.server.local']['backend_config']['connector_config']['host'] = $_ENV['DDEV_HOSTNAME'];
+$config['search_api.server.local']['backend_config']['connector_config']['core'] = 'search';
+$config['search_api.server.local']['backend_config']['connector_config']['username'] = 'solr';
+$config['search_api.server.local']['backend_config']['connector_config']['password'] = 'SolrRocks';
+$config['search_api.server.local']['backend_config']['connector_config']['port'] = 8983;
+```
 
 [configuration-options]: https://ddev.readthedocs.io/en/latest/users/configuration/config/
