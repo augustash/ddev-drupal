@@ -1,30 +1,48 @@
-# Basic setup
+# Setup
 
-Drop into root of drupal site.
+Add the following to root composer.json:
 
-Edit config.yaml:
-* Name should match client code.
-* Replace [project-name] with pantheon site-name.
-* Adjust settings as needed.
-  - Ddev [configuration options][configuration-options].
+Root level:
+```
+"autoload": {
+    "classmap": [
+        "scripts/composer/ScriptHandler.php"
+    ]
+}
 
-# Solr setup
+"scripts": {
+    "post-install-cmd": "chmod +x .ddev/scripts/setBaseConfiguration.sh && .ddev/scripts/setBaseConfiguration.sh"
+}
+```
 
-If you need solr, leave as-is.
+extra -> allowed-packages:
+```
+"augustash/ddev"
+```
 
-# Remove Solr
-Remove /.ddev/solr, and /.ddev/docker-compose.solr.yaml.
-Search .ddev for '[solrRemove]', and remove code.
+extra -> installer-paths
+```
+".ddev": ["augustash/ddev"],
+```
 
-Solr collection/core will be automatically created, named 'search'.
-Settings should be taken from /web/sites/[site-name].settings.local.php 'Search api local configuration overrides.' section, and placed within /web/sites/default/settings.local.php.
+Run composer install, follow prompts.
+
+# Configuration
+
+On composer install, you will be prompted for client-code and pantheon-site-name. These are used to set the config.yaml name and project environment variable.
 
 # Database
 
 Database will be downloaded automatically, this is handled in /.ddev/commands/host/db.
-  config.yml web_environment project variable must be correctly set to the pantheon site-name.
   There must be no tables in the existing db.
 
-After database is downloaded, solr collection/core will be automatically created. This is handled within /.ddev/commands/host/solrcollection.
+# Solr
+
+You will be prompted to install solr. If you select no, solr will be removed from the project.
+
+Collection/core will be automatically created. Collection/core is aliased to 'search'.
+
+Copy solr settings from [client-code].settings.local.php to settings.local.php. They are commented as 'Search api local configuration overrides.'.
+  todo: automatically write settings to settings.local.php.
 
 [configuration-options]: https://ddev.readthedocs.io/en/latest/users/configuration/config/
