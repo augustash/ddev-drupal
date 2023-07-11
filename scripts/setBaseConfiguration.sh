@@ -20,6 +20,7 @@ if ! grep -q "\[client-code\]" .ddev/config.yaml; then
   exit 0
 fi
 
+echo
 echo 'Client code?'
 read client_code
 sed -i '' "s/\[client-code\]/$client_code/" .ddev/config.yaml >/dev/null
