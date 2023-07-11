@@ -27,6 +27,6 @@
         }
     },
     "scripts": {
-        "drupal-scaffold": "bash .ddev/scripts/setBaseConfiguration"
+        "drupal-scaffold": "echo hello"
     }
 }
