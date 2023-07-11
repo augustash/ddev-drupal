@@ -27,6 +27,6 @@
         }
     },
     "scripts": {
-        "config": "chmod +x .ddev/scripts/setBaseConfiguration && SHELL_INTERACTIVE=true .ddev/scripts/setBaseConfiguration"
+        "config": "SHELL_INTERACTIVE=true .ddev/scripts/setBaseConfiguration"
     }
 }
