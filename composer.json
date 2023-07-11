@@ -27,6 +27,6 @@
         }
     },
     "scripts": {
-        "post-package-install": "chmod +x .ddev/scripts/setBaseConfiguration && SHELL_INTERACTIVE=true .ddev/scripts/setBaseConfiguration"
+        "post-package-install": "SHELL_INTERACTIVE=true .ddev/scripts/setBaseConfiguration.sh"
     }
 }
