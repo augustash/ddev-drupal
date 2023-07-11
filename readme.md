@@ -47,7 +47,7 @@ Add below code to [client-code].settings.local.php(example file), and settings.l
   Our setups are usually an index of global and server of local.
 
 
-  todo: automatically write settings to settings.local.php.
+  todo: automatically write settings to [client-code].settings.local.php and settings.local.php.
 
 ```
 /**
