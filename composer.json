@@ -25,8 +25,5 @@
                 }
             }
         }
-    },
-    "scripts": {
-        "post-package-install": "SHELL_INTERACTIVE=true .ddev/scripts/setBaseConfiguration.sh"
     }
 }
