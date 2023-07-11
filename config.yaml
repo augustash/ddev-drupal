@@ -20,6 +20,7 @@ webimage_extra_packages: [build-essential, libnotify-bin, make, python]
 hooks:
   post-start:
     -exec-host: ddev solrcollection
+    -exec-host: ddev db
   # post-import-db:
   #   - exec: drush cim -y
   #   - exec: drush cr

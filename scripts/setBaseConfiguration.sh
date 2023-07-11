@@ -3,7 +3,6 @@
 removeSolr() {
   if [[ $1 == 'n' || $1 == 'no' ]]; then
     rm -rf .ddev/solr .ddev/docker-compose.solr.yaml
-    sed -i '' "s/post-start:/# post-start:/" .ddev/config.yaml >/dev/null
     sed -i '' "s/  -exec-host: ddev solrcollection/#  -exec-host: ddev solrcollection/" .ddev/config.yaml >/dev/null
     echo 'Solr removed from ddev.'
   elif [[ $1 == 'y' || $1 == 'yes' ]]; then
