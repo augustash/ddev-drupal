@@ -7,7 +7,7 @@ use Composer\Script\Event;
 class Ddev {
     public static function postPackageInstall(Event $event) {
       // Return if on pantheon/platform servers.
-      if (defined('PANTHEON_ENVIRONMENT') || defined('PLATFORM_ENVIRONMENT')) {
+      if (isset($_ENV['PANTHEON_ENVIRONMENT']) || isset($_ENV['PLATFORM_ENVIRONMENT'])) {
         return;
       }
       
@@ -21,10 +21,10 @@ class Ddev {
         }
 
         $clientCode = readline("Client code?\n");
-        $siteName = readline("Host project name?\n");
+        $siteName = readline("Host site name?\n");
 
         $content = str_replace('[client-code]', $clientCode, $content);
-        $content = str_replace('[host-project-name]', $siteName, $content);
+        $content = str_replace('[host-site-name]', $siteName, $content);
 
         if (file_put_contents($configuration, $content)) {
           echo "Config.yaml updated.\n";
