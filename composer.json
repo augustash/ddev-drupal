@@ -12,8 +12,7 @@
                     "mode": "replace",
                     "path": "config.yaml",
                     "overwrite": false
-                },
-                "[project-root]/scripts/ddev/ddev.php": "assets/ddev.php"
+                }
             }
         }
     },
