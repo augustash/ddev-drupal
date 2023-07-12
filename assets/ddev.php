@@ -38,7 +38,7 @@ class Ddev {
           if (file_put_contents($configuration, $content)) {
             // Add docker-compose.solr.yaml and solr directory from .ddev/assets.
             shell_exec('mv ' . __DIR__ . '/../../.ddev/assets/solr ' . __DIR__ . '/../../.ddev');
-            shell_exec('mv ' . __DIR__ . '/../../.ddev/assets/docker-compose.solr.yaml ' . __DIR__ . '/.../../.ddev');
+            shell_exec('mv ' . __DIR__ . '/../../.ddev/assets/docker-compose.solr.yaml ' . __DIR__ . '/../../.ddev');
 
             echo "Solr will be installed on ddev start.\n";
           }
