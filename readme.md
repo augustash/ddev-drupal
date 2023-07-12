@@ -26,6 +26,7 @@ Root .gitignore:
 ```
 # Ddev is now composer installed.
 /.ddev/
+/scripts/ddev/
 ```
 
 Run:
@@ -83,7 +84,13 @@ $config['search_api.server.local']['backend_config']['connector_config']['port']
 
 # TODO:
 
-Write Solr settings to [client-code].settings.local.php and settings.local.php.
-Write to gitignore.
+Write Solr settings above to [client-code].settings.local.php and settings.local.php.
+
+Write 
+```
+/.ddev/
+/scripts/ddev/
+```
+to gitignore.
 
 [configuration-options]: https://ddev.readthedocs.io/en/latest/users/configuration/config/
