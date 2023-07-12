@@ -5,7 +5,7 @@ database:
   type: mariadb
   version: "10.5"
 web_environment:
-  - project=[host-project-name].live
+  - project=[host-site-name].live
 mutagen_enabled: true
 php_version: 8.1
 nodejs_version: "14"
