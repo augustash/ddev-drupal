@@ -15,8 +15,8 @@
                 "[project-root]/.ddev/commands/web/php": "commands/web/php",
                 "[project-root]/.ddev/providers/pantheon.yaml": "providers/pantheon.yaml",
                 "[project-root]/.ddev/docker-compose.browsersync.yaml": "docker-compose.browsersync.yaml",
-                "[project-root]/.ddev/solr/security.json": false,
-                "[project-root]/.ddev/docker-compose.solr.yaml": false,
+                "[project-root]/.ddev/solr/security.json": "solr/security.json",
+                "[project-root]/.ddev/docker-compose.solr.yaml": "docker-compose.solr.yaml",
                 "[project-root]/.ddev/config.yaml": {
                     "mode": "replace",
                     "path": "config.yaml",
