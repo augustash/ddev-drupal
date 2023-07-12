@@ -4,13 +4,6 @@ Set the following to composer.json:
 
 Root level:
 ```
-"autoload": {
-    "classmap": [
-        "scripts/composer/ScriptHandler.php"
-        "scripts/ddev/ddev.php"
-    ]
-}
-
 "scripts": {
     "post-install-cmd": "Augustash\\Ddev::postPackageInstall"
 },
@@ -40,6 +33,18 @@ Run:
 composer require --dev augustash/ddev -W
 ```
 The --dev is needed so that the package will not be built into non-local environment sites.
+
+Once installed, add/edit:
+```
+"autoload": {
+    "classmap": [
+        "scripts/composer/ScriptHandler.php"
+        "scripts/ddev/ddev.php"
+    ]
+}
+```
+
+Run composer install.
 Follow prompts.
 
 # Configuration
