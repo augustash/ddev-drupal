@@ -42,9 +42,8 @@ The --dev is needed so that the package will not be built into non-local environ
 
 Once installed, add/edit to root composer.json:
 ```
-"autoload": {
+"autoload-dev": {
     "classmap": [
-        "scripts/composer/ScriptHandler.php"
         "scripts/ddev/ddev.php"
     ]
 }
