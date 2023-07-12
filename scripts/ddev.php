@@ -8,7 +8,7 @@ class Ddev {
     public static function postPackageInstall(Event $event) {
       // Return if on pantheon/platform servers.
       if (isset($_ENV['PANTHEON_ENVIRONMENT']) || isset($_ENV['PLATFORM_ENVIRONMENT'])) {
-        die();
+        return;
       }
       
       $configuration = __DIR__ . '/../../../../.ddev/config.yaml';
