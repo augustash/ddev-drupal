@@ -22,7 +22,7 @@
                     "path": "config.yaml",
                     "overwrite": false
                 },
-                "[project-root]/.ddev/assets/ddev.php": "../scripts/ddev/ddev.php"
+                "[project-root]/../scripts/ddev/ddev.php": "assets/ddev.php"
             }
         }
     }
