@@ -34,16 +34,16 @@ class Ddev {
 
         $solr = readline("Would in like solr installed?(y/n)\n");
         if ($solr == 'yes' || $solr == 'y') {
-          echo "Solr installed\n";
-        } else {
-          $content = str_replace('-exec-host: ddev solrcollection', '#  -exec-host: ddev solrcollection', $content);
+          $content = str_replace('# -exec-host: ddev solrcollection', '  -exec-host: ddev solrcollection', $content);
           if (file_put_contents($configuration, $content)) {
-            // Remove docker-compose.solr.yaml and solr directory from .ddev.
-            unlink(__DIR__ . '/../../.ddev/docker-compose.solr.yaml');
-            shell_exec('rm -rf ' . __DIR__ . '/../../.ddev/solr');
+            // Add docker-compose.solr.yaml and solr directory from .ddev/assets.
+            shell_exec('mv ' . __DIR__ . '/../../.ddev/assets/solr ' . __DIR__ . '/../../.ddev');
+            shell_exec('mv ' . __DIR__ . '/../../.ddev/assets/docker-compose.solr.yaml ' . __DIR__ . '/.../../.ddev');
 
-            echo "Solr not installed.\n";
+            echo "Solr will be installed on ddev start.\n";
           }
+        } else {
+          echo "Solr not installed.\n";
         }
 
       }
