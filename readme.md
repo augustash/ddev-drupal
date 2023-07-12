@@ -107,4 +107,13 @@ to gitignore.
 Class Augustash\Ddev is not autoloadable, can not call post-install-cmd script.
   Add "scripts/ddev/ddev.php" to composer.json autoload. Bottom of 'Setup' section.
 
+Unable to install modules search_api_solr_admin due to missing modules search_api_solr_admin.
+Command "solr-upload-conf" is not defined.
+  Solr is attempting to install. Did you run composer install and answer no/n?
+    Delete .ddev entirely and composer install, follow prompts.
+    Or, does your config.yaml contain '[client-code]' still?
+      Yes, run composer install.
+      No, comment out '- exec-host: ddev solrcollection' in config.yaml.
+      Remove docker-compose.solr.yaml and solr directory.
+
 [configuration-options]: https://ddev.readthedocs.io/en/latest/users/configuration/config/
