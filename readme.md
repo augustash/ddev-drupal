@@ -1,6 +1,6 @@
 # Setup
 
-Set the following to composer.json:
+Set the following to root composer.json:
 
 Root level:
 ```
@@ -35,7 +35,7 @@ composer require --dev augustash/ddev -W
 ```
 The --dev is needed so that the package will not be built into non-local environment sites.
 
-Once installed, add/edit:
+Once installed, add/edit to root composer.json:
 ```
 "autoload": {
     "classmap": [
@@ -96,5 +96,10 @@ Write
 /scripts/ddev/
 ```
 to gitignore.
+
+# Troubleshooting
+
+Class Augustash\Ddev is not autoloadable, can not call post-install-cmd script.
+  Add "scripts/ddev/ddev.php" to composer.json autoload. Bottom of 'Setup' section.
 
 [configuration-options]: https://ddev.readthedocs.io/en/latest/users/configuration/config/
