@@ -22,31 +22,15 @@ extra -> allowed-packages:
 "augustash/ddev"
 ```
 
-```
-Top of- extra -> installer-paths
-".ddev": ["type:augustash-ddev"]
-```
-
 Root .gitignore:
 ```
 # Ddev is now composer installed.
 /.ddev/
-/scripts/ddev/
 ```
 
 Run:
 ```
-composer require --dev augustash/ddev -W
-```
-The --dev is needed so that the package will not be built into non-local environment sites.
-
-Once installed, add/edit to root composer.json:
-```
-"autoload-dev": {
-    "classmap": [
-        "scripts/ddev/ddev.php"
-    ]
-}
+composer require augustash/ddev -W
 ```
 
 Run composer install.
@@ -54,16 +38,16 @@ Follow prompts.
 
 # Configuration
 
-On composer install, you will be prompted for client-code and host-project-name. These are used to set the config.yaml name and project environment variable.
+On composer install, you will be prompted for client-code and host-site-name. These are used to set the config.yaml name and project environment variables.
 
 # Database
 
 Database will be downloaded automatically, this is handled in /.ddev/commands/host/db.
-  Will not download if there are tables in the db.
+  Will not download if there are tables in the existing local db.
 
 # Solr
 
-You will be prompted to install solr. If you select no, solr will be removed from the project.
+You will be prompted to install solr. If you select yes, solr will be added to the project.
 
 If installed, collection/core will be automatically created. Collection/core is aliased to 'search'.
 
@@ -88,23 +72,17 @@ $config['search_api.server.local']['backend_config']['connector_config']['port']
 
 # TODO:
 
-Possibly change script from post-install-cmd to post-package-install-cmd.
-Possibly add autoloader automatically on post-package-install-cmd.
-Cover post-package-uninstall to remove ddev.php from /scripts. 
+Possibly change script from post-install-cmd to post-package-install-cmd. 
 
 Write Solr settings above to [client-code].settings.local.php and settings.local.php.
 
 Write 
 ```
 /.ddev/
-/scripts/ddev/
 ```
 to gitignore.
 
 # Troubleshooting
-
-Class Augustash\Ddev is not autoloadable, can not call post-install-cmd script.
-  Add "scripts/ddev/ddev.php" to composer.json autoload. Bottom of 'Setup' section.
 
 Unable to install modules search_api_solr_admin due to missing modules search_api_solr_admin.
 Command "solr-upload-conf" is not defined.
