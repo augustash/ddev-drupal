@@ -22,6 +22,11 @@ extra -> allowed-packages:
 "augustash/ddev"
 ```
 
+```
+extra -> installer-paths
+".ddev": ["type:augustash-ddev"]
+```
+
 Root .gitignore:
 ```
 # Ddev is now composer installed.
