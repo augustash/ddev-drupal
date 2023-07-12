@@ -84,6 +84,10 @@ $config['search_api.server.local']['backend_config']['connector_config']['port']
 
 # TODO:
 
+Possibly change script from post-install-cmd to post-package-install-cmd.
+Possibly add autoloader automatically on post-package-install-cmd.
+Cover post-package-uninstall to remove ddev.php from /scripts. 
+
 Write Solr settings above to [client-code].settings.local.php and settings.local.php.
 
 Write 
