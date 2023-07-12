@@ -19,7 +19,7 @@
     },
     "autoload": {
       "classmap": [
-        "scripts/ddev/ddev.php"
+        "scripts/ddev.php"
       ]
     },
     "scripts": {
