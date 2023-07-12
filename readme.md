@@ -23,7 +23,7 @@ extra -> allowed-packages:
 ```
 
 ```
-extra -> installer-paths
+Top of- extra -> installer-paths
 ".ddev": ["type:augustash-ddev"]
 ```
 
