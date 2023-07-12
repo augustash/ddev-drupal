@@ -1,7 +1,10 @@
 {
     "name": "augustash/ddev",
     "description": "AugustAsh ddev installer.",
-    "type": "drupal-module",
+    "type": "library",
+    "require": {
+        "php": ">=7"
+    },
     "extra": {
         "drupal-scaffold": {
             "file-mapping": {
@@ -13,5 +16,13 @@
                 "[project-root]/scripts/ddev/ddev.php": "assets/ddev.php"
             }
         }
+    },
+    "autoload": {
+      "classmap": [
+        "scripts/ddev/ddev.php"
+      ]
+    },
+    "scripts": {
+      "post-install-cmd": "Augustash\\Ddev::postPackageInstall"
     }
 }
