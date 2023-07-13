@@ -7,7 +7,8 @@ use Composer\Script\Event;
 class Ddev {
     public static function postPackageInstall(Event $event) {
       // Return if on pantheon/platform servers.
-      if (isset($_ENV['PANTHEON_ENVIRONMENT']) || isset($_ENV['PLATFORM_ENVIRONMENT'])) {
+      // Pantheon php is not compiled with readline.
+      if (!function_exists('readline')) {
         return;
       }
       
@@ -17,12 +18,6 @@ class Ddev {
 
         // Return if file already edited.
         if (strpos($content, '[client-code]') === FALSE) {
-          return;
-        }
-
-        // Check for pantheon.
-        // Pantheon php is not compiled with readline.
-        if (!function_exists('readline')) {
           return;
         }
 
