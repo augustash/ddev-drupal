@@ -2,8 +2,6 @@
 
 namespace Augustash;
 
-use Augustash\Commands\DdevConfig;
-use Composer\Console\Application;
 use Composer\Script\Event;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Yaml\Yaml;
@@ -47,15 +45,15 @@ class Ddev {
       $siteName = $io->ask('<info>Pantheon site name</info> [<comment>' . 'aai' . $clientCode . '</comment>]:' . "\n > ", 'aai' . $clientCode);
       $siteEnv = $io->ask('<info>Pantheon site environment (dev|test|live)</info> [<comment>live</comment>]:' . "\n > ", 'live');
       $drupalVersion = $io->select('<info>Drupal version</info> [<comment>10</comment>]:', [
-        '7',
-        '8',
-        '9',
-        '10',
+        '7' => '7',
+        '8' => '8',
+        '9' => '9',
+        '10' => '10',
       ], '10');
       $phpVersion = $io->select('<info>PHP version</info> [<comment>8.1</comment>]:', [
-        '7.4',
-        '8.1',
-        '8.2',
+        '7.4' => '7.4',
+        '8.1' => '8.1',
+        '8.2' => '8.2',
       ], '8.1');
 
       $config['name'] = $clientCode;
@@ -91,7 +89,7 @@ class Ddev {
       try {
         $fileSystem = new Filesystem();
         $config = Yaml::parseFile(static::$configPath);
-        $config['hooks']['post-start'][] = 'exec-host: ddev solrcollection';
+        $config['hooks']['post-start'][]['exec-host'] = 'ddev solrcollection';
         $fileSystem->dumpFile(static::$configPath, Yaml::dump($config));
         $fileSystem->mirror(__DIR__ . '/../assets/solr', __DIR__ . '/../../../../.ddev/solr');
         $fileSystem->copy(__DIR__ . '/../assets/docker-compose.solr.yaml', __DIR__ . '/../../../../.ddev/docker-compose.solr.yaml');
