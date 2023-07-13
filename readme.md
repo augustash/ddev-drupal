@@ -33,7 +33,11 @@ Run:
 composer require augustash/ddev -W
 ```
 
-Run composer install.
+```
+composer install
+```
+
+Compose install will trigger our configuration script.
 Follow prompts.
 
 # Configuration
