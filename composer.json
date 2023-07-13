@@ -17,8 +17,6 @@
               "[project-root]/.ddev/commands/web/nvm": "commands/web/nvm",
               "[project-root]/.ddev/commands/web/php": "commands/web/php",
               "[project-root]/.ddev/providers/pantheon.yaml": "providers/pantheon.yaml",
-              "[project-root]/.ddev/assets/solr/security.json": "assets/solr/security.json",
-              "[project-root]/.ddev/assets/docker-compose.solr.yaml": "assets/docker-compose.solr.yaml",
               "[project-root]/.ddev/docker-compose.browsersync.yaml": "docker-compose.browsersync.yaml",
               "[project-root]/.ddev/config.yaml": {
                   "mode": "replace",

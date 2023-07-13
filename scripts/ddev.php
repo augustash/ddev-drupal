@@ -60,13 +60,13 @@ class Ddev {
       $config = str_replace('# - exec-host: ddev solrcollection', '  - exec-host: ddev solrcollection', $config);
       if (file_put_contents($config_path, $config)) {
         // Add docker-compose.solr.yaml and solr directory from .ddev/assets.
-        shell_exec('mv ' . __DIR__ . '/../../../../.ddev/assets/solr ' . __DIR__ . '/../../../../.ddev');
-        shell_exec('mv ' . __DIR__ . '/../../../../.ddev/assets/docker-compose.solr.yaml ' . __DIR__ . '/../../../../.ddev');
+        shell_exec('mv ' . __DIR__ . '/../assets/solr ' . __DIR__ . '/../../../../.ddev');
+        shell_exec('mv ' . __DIR__ . '/../assets/docker-compose.solr.yaml ' . __DIR__ . '/../../../../.ddev');
         echo "Solr will be installed on ddev start.\n";
       }
     }
     else {
-      echo "Enabled: Solr\n";
+      echo "Solr disabled.\n";
     }
   }
 
@@ -76,11 +76,11 @@ class Ddev {
   protected static function installWkhtmltopdf() {
     $status = readline("Would in like wkhtmltopdf support?(y/n)\n");
     if ($status == 'yes' || $status == 'y') {
-      shell_exec('mv ' . __DIR__ . '/../../../../.ddev/assets/web-build/Dockerfile.ddev-wkhtmltox ' . __DIR__ . '/../../../../.ddev/web-build');
-      echo "Solr will be installed on ddev start.\n";
+      shell_exec('mv ' . __DIR__ . '/../assets/web-build/Dockerfile.ddev-wkhtmltox ' . __DIR__ . '/../../../../.ddev/web-build');
+      echo "wkhtmltopdf will be installed on ddev start/restart.\n";
     }
     else {
-      echo "Enabled: wkhtmltopdf\n";
+      echo "wkhtmltopdf disabled.\n";
     }
   }
 
