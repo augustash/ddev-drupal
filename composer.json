@@ -27,9 +27,9 @@
         }
     },
     "autoload": {
-      "classmap": [
-        "scripts/ddev.php"
-      ]
+      "psr-4": {
+        "Augustash\\": "src/"
+      }
     },
     "scripts": {
       "post-install-cmd": "Augustash\\Ddev::postPackageInstall"
