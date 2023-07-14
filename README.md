@@ -4,49 +4,29 @@ Set the following to root composer.json:
 
 Root level:
 ```
-{
-    "url": "https://github.com/augustash/ddev.git",
-    "type": "git"
-}
-```
-```
 "scripts": {
-    "post-install-cmd": "Augustash\\Ddev::postPackageInstall"
+    "ddev-setup": "Augustash\\Ddev::postPackageInstall"
 }
-```
-
-extra -> allowed-packages:
-```
-"augustash/ddev"
-```
-
-Root .gitignore:
-```
-# Ignore ddev files
-/.ddev/commands
-/.ddev/providers
-/.ddev/docker-compose.browsersync.yaml
 ```
 
 Run:
 ```
-composer require augustash/ddev
-composer install
+composer require augustash/ddev-drupal && composer run-script ddev-setup
 ```
 
 Compose install will trigger configuration script, follow prompts.
 
 # Configuration
 
-On composer install, you will be prompted for:
+On ddev-setup, you will be prompted for:
   - client code
-  - pantheon site name
-  - site environment
-  - drupal version
-  - php version
-  - solr support
+  - Pantheon site name
+  - Pantheon site environment
+  - Drupal version
+  - PHP version
+  - Solr support
   - wkhtmltopdf support
-  
+
 These are used to set the config.yaml name and project environment variables.
 
 # Database
@@ -60,9 +40,9 @@ You will be prompted to install solr.
 
 If installed, collection/core will be automatically created. Collection/core is aliased to 'search'.
 
-Add below code to [client-code].settings.local.php(example file), and settings.local.php.
-  Create/assign server/index names and configuration overrides accordingly.
-  Our setups are usually an index of global and server of local.
+Verify the below code has been adding to the site settings.local.php.
+Create/assign server/index names and configuration overrides accordingly.
+Our setups are usually an index of global and server of local.
 
 ```
 /**
@@ -81,18 +61,7 @@ $config['search_api.server.local']['backend_config']['connector_config']['port']
 
 # TODO:
 
-Possibly change script from post-install-cmd to post-package-install-cmd.
-
-Write Solr settings above to [client-code].settings.local.php and settings.local.php.
-
-Write
-```
-# Ignore ddev files
-/.ddev/commands
-/.ddev/providers
-/.ddev/docker-compose.browsersync.yaml
-```
-to gitignore.
+Nothing currently.
 
 # Troubleshooting
 

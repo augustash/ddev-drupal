@@ -26,27 +26,24 @@ class Ddev {
   private static $gitIgnorePath = __DIR__ . '/../../../../.gitignore';
 
   /**
+   * Path to gitignore file.
+   *
+   * @var string
+   */
+  private static $settingsLocalPath = __DIR__ . '/../../../../sites/default/settings.local.php';
+
+  /**
    * Run on post-install-cmd.
    *
    * @param \Composer\Script\Event $event
    *   The event.
    */
   public static function postPackageInstall(Event $event) {
-    // Return if on pantheon/platform servers.
-    // Pantheon php is not compiled with readline.
-    if (!function_exists('readline')) {
-      return;
-    }
 
     $fileSystem = new Filesystem();
     if ($fileSystem->exists(static::$configPath)) {
       $io = $event->getIO();
       $config = Yaml::parseFile(static::$configPath);
-
-      // Return if file already edited.
-      if (!empty($config['name'])) {
-        return;
-      }
 
       $clientCode = $io->ask('<info>Client code?</info>:' . "\n > ");
       $siteName = $io->ask('<info>Pantheon site name</info> [<comment>' . 'aai' . $clientCode . '</comment>]:' . "\n > ", 'aai' . $clientCode);
@@ -71,7 +68,7 @@ class Ddev {
       ];
 
       try {
-        $fileSystem->dumpFile(static::$configPath, Yaml::dump($config));
+        $fileSystem->dumpFile(static::$configPath, Yaml::dump($config, 2, 2));
         $io->info('<info>Config.yaml updated.</info>');
       }
       catch (\Error $e) {
@@ -80,7 +77,7 @@ class Ddev {
 
       // Update .gitignore.
       try {
-        $gitignore = $fileSystem->exists(static::$gitIgnorePath) ? file_get_contents(__DIR__ . '/../../../../.gitignore') : '';
+        $gitignore = $fileSystem->exists(static::$gitIgnorePath) ? file_get_contents(static::$gitIgnorePath) : '';
         if (strpos($gitignore, '# Ignore ddev files') === FALSE) {
           $gitignore .= "\n" . file_get_contents(__DIR__ . '/../assets/.gitignore.append');
           $fileSystem->dumpFile(static::$gitIgnorePath, $gitignore);
@@ -102,11 +99,11 @@ class Ddev {
    *   The event.
    */
   protected static function installSolr(Event $event) {
+    $fileSystem = new Filesystem();
     $io = $event->getIO();
     $status = $io->askConfirmation('<info>Do you need Solr support?</info> [<comment>no</comment>]:' . "\n > ", FALSE);
     if ($status) {
       try {
-        $fileSystem = new Filesystem();
         $config = Yaml::parseFile(static::$configPath);
         $config['hooks']['post-start'][]['exec-host'] = 'ddev solrcollection';
         $fileSystem->dumpFile(static::$configPath, Yaml::dump($config));
@@ -117,6 +114,24 @@ class Ddev {
       catch (\Error $e) {
         $io->error('<error>' . $e->getMessage() . '</error>');
       }
+
+      // Update site.settings.php.
+      if ($fileSystem->exists(static::$settingsLocalPath)) {
+        try {
+          $data = file_get_contents(static::$settingsLocalPath);
+          if (strpos($data, 'Search api local configuration overrides.') === FALSE) {
+            $data .= "\n" . file_get_contents(__DIR__ . '/../assets/settings.local.solr.append');
+            $fileSystem->dumpFile(static::$settingsLocalPath, $data);
+          }
+        }
+        catch (\Error $e) {
+          $io->error('<error>' . $e->getMessage() . '</error>');
+        }
+      }
+    }
+    else {
+      $fileSystem->remove(__DIR__ . '/../../../../.ddev/solr');
+      $fileSystem->remove(__DIR__ . '/../../../../.ddev/docker-compose.solr.yaml');
     }
   }
 
@@ -124,19 +139,21 @@ class Ddev {
    * Install wkhtmltopdf.
    */
   protected static function installWkhtmltopdf(Event $event) {
+    $fileSystem = new Filesystem();
     $io = $event->getIO();
     $status = $io->askConfirmation('<info>Do you need wkhtmltopdf support?</info> [<comment>no</comment>]:' . "\n > ", FALSE);
     if ($status) {
-      $fileSystem = new Filesystem();
       try {
         $fileSystem = new Filesystem();
-        $config = Yaml::parseFile(static::$configPath);
         $fileSystem->copy(__DIR__ . '/../assets/web-build/Dockerfile.ddev-wkhtmltox', __DIR__ . '/../../../../.ddev/web-build/Dockerfile.ddev-wkhtmltox');
         $io->info('[Enabled] wkhtmltopdf');
       }
       catch (\Error $e) {
         $io->error('<error>' . $e->getMessage() . '</error>');
       }
+    }
+    else {
+      $fileSystem->remove(__DIR__ . '/../../../../.ddev/web-build/Dockerfile.ddev-wkhtmltox');
     }
   }
 
