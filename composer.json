@@ -19,7 +19,8 @@
               "[project-root]/.ddev/providers/pantheon.yaml": "assets/providers/pantheon.yaml",
               "[project-root]/.ddev/docker-compose.browsersync.yaml": "assets/docker-compose.browsersync.yaml",
               "[project-root]/.gitignore": {
-                  "append": "assets/gitignore.txt"
+                  "mode": "append",
+                  "path": "assets/gitignore.txt"
               },
               "[project-root]/.ddev/config.yaml": {
                   "mode": "replace",
