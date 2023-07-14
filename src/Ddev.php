@@ -30,7 +30,14 @@ class Ddev {
    *
    * @var string
    */
-  private static $settingsLocalPath = __DIR__ . '/../../../../sites/default/settings.local.php';
+  private static $settingsLocalPath = 'sites/default/settings.local.php';
+
+  /**
+   * The docroot.
+   *
+   * @var string
+   */
+  private static $docRoot;
 
   /**
    * Run on post-install-cmd.
@@ -46,6 +53,7 @@ class Ddev {
       $config = Yaml::parseFile(static::$configPath);
 
       $clientCode = $io->ask('<info>Client code?</info>:' . "\n > ");
+      $docRoot = static::$docRoot = $io->ask('<info>Document root?</info>  [<comment>web</comment>]:' . "\n > ", 'web') ?: '';
       $siteName = $io->ask('<info>Pantheon site name</info> [<comment>' . 'aai' . $clientCode . '</comment>]:' . "\n > ", 'aai' . $clientCode);
       $siteEnv = $io->ask('<info>Pantheon site environment (dev|test|live)</info> [<comment>live</comment>]:' . "\n > ", 'live');
       $drupalVersion = $io->select('<info>Drupal version</info> [<comment>10</comment>]:', [
@@ -61,6 +69,7 @@ class Ddev {
       ], '8.1');
 
       $config['name'] = $clientCode;
+      $config['docroot'] = $docRoot;
       $config['type'] = 'drupal' . $drupalVersion;
       $config['php_version'] = $phpVersion;
       $config['web_environment'] = [
@@ -116,12 +125,13 @@ class Ddev {
       }
 
       // Update site.settings.php.
-      if ($fileSystem->exists(static::$settingsLocalPath)) {
+      $settingsLocalPath = static::getRootPath() . static::$settingsLocalPath;
+      if ($fileSystem->exists($settingsLocalPath)) {
         try {
-          $data = file_get_contents(static::$settingsLocalPath);
+          $data = file_get_contents($settingsLocalPath);
           if (strpos($data, 'Search api local configuration overrides.') === FALSE) {
             $data .= "\n" . file_get_contents(__DIR__ . '/../assets/settings.local.solr.append');
-            $fileSystem->dumpFile(static::$settingsLocalPath, $data);
+            $fileSystem->dumpFile($settingsLocalPath, $data);
           }
         }
         catch (\Error $e) {
@@ -155,6 +165,17 @@ class Ddev {
     else {
       $fileSystem->remove(__DIR__ . '/../../../../.ddev/web-build/Dockerfile.ddev-wkhtmltox');
     }
+  }
+
+  /**
+   * Get docroot.
+   */
+  protected static function getRootPath() {
+    $root = __DIR__ . '/../../../../';
+    if ($docroot = static::$docRoot) {
+      $root .= $docroot . '/';
+    }
+    return $root;
   }
 
 }

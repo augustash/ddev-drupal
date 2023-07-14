@@ -1,6 +1,6 @@
 name:
 type: drupal9
-docroot: web
+docroot:
 database:
   type: mariadb
   version: "10.5"

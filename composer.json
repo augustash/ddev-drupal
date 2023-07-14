@@ -24,7 +24,7 @@
                   "path": "assets/config.yaml",
                   "overwrite": false
               },
-              "[project-root]/sites/default/settings.local.php": {
+              "[web-root]/sites/default/settings.local.php": {
                   "mode": "replace",
                   "path": "assets/settings.local.php",
                   "overwrite": false
