@@ -8,5 +8,4 @@ mutagen_enabled: true
 nodejs_version: "14"
 webimage_extra_packages: [build-essential, libnotify-bin, make, python]
 hooks:
-  post-start:
-    - "exec-host: ddev db"
+  post-start: [exec-host: 'ddev db']
