@@ -81,8 +81,10 @@ class Ddev {
       // Update .gitignore.
       try {
         $gitignore = $fileSystem->exists(static::$gitIgnorePath) ? file_get_contents(__DIR__ . '/../../../../.gitignore') : '';
-        $gitignore .= "\n" . file_get_contents(__DIR__ . '/../assets/.gitignore.append');
-        $fileSystem->dumpFile(static::$gitIgnorePath, $gitignore);
+        if (strpos($gitignore, '# Ignore ddev files') === FALSE) {
+          $gitignore .= "\n" . file_get_contents(__DIR__ . '/../assets/.gitignore.append');
+          $fileSystem->dumpFile(static::$gitIgnorePath, $gitignore);
+        }
       }
       catch (\Error $e) {
         $io->error('<error>' . $e->getMessage() . '</error>');
