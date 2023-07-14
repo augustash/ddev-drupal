@@ -84,7 +84,7 @@ class Ddev {
    */
   protected static function installSolr(Event $event) {
     $io = $event->getIO();
-    $status = $io->askConfirmation('<info>Would in like Solr support?</info> [<comment>no</comment>]:' . "\n > ", FALSE);
+    $status = $io->askConfirmation('<info>Do you need Solr support?</info> [<comment>no</comment>]:' . "\n > ", FALSE);
     if ($status) {
       try {
         $fileSystem = new Filesystem();
@@ -106,7 +106,7 @@ class Ddev {
    */
   protected static function installWkhtmltopdf(Event $event) {
     $io = $event->getIO();
-    $status = $io->askConfirmation('<info>Would in like wkhtmltopdf support?</info> [<comment>no</comment>]:' . "\n > ", FALSE);
+    $status = $io->askConfirmation('<info>Do you need wkhtmltopdf support?</info> [<comment>no</comment>]:' . "\n > ", FALSE);
     if ($status) {
       $fileSystem = new Filesystem();
       try {
