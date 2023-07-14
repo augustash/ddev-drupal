@@ -20,7 +20,7 @@
               "[project-root]/.ddev/docker-compose.browsersync.yaml": "assets/docker-compose.browsersync.yaml",
               "[project-root]/.gitignore": {
                   "mode": "append",
-                  "path": "assets/gitignore.txt"
+                  "path": "assets/.gitignore.append"
               },
               "[project-root]/.ddev/config.yaml": {
                   "mode": "replace",
