@@ -1,5 +1,5 @@
 {
-    "name": "augustash/ddev",
+    "name": "augustash/ddev-drupal",
     "description": "AugustAsh ddev installer.",
     "type": "library",
     "require": {
