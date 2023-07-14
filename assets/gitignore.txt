@@ -1,0 +1,5 @@
+# Ignore ddev files
+/.ddev/commands
+/.ddev/providers
+/.ddev/assets
+/.ddev/docker-compose.browsersync.yaml

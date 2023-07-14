@@ -8,19 +8,22 @@
     "extra": {
         "drupal-scaffold": {
             "file-mapping": {
-              "[project-root]/.ddev/commands/host/code": "commands/host/code",
-              "[project-root]/.ddev/commands/host/db": "commands/host/db",
-              "[project-root]/.ddev/commands/host/npm": "commands/host/npm",
-              "[project-root]/.ddev/commands/host/solrcollection": "commands/host/solrcollection",
-              "[project-root]/.ddev/commands/web/drush": "commands/web/drush",
-              "[project-root]/.ddev/commands/web/gulp": "commands/web/gulp",
-              "[project-root]/.ddev/commands/web/nvm": "commands/web/nvm",
-              "[project-root]/.ddev/commands/web/php": "commands/web/php",
-              "[project-root]/.ddev/providers/pantheon.yaml": "providers/pantheon.yaml",
-              "[project-root]/.ddev/docker-compose.browsersync.yaml": "docker-compose.browsersync.yaml",
+              "[project-root]/.ddev/commands/host/code": "assets/commands/host/code",
+              "[project-root]/.ddev/commands/host/db": "assets/commands/host/db",
+              "[project-root]/.ddev/commands/host/npm": "assets/commands/host/npm",
+              "[project-root]/.ddev/commands/host/solrcollection": "assets/commands/host/solrcollection",
+              "[project-root]/.ddev/commands/web/drush": "assets/commands/web/drush",
+              "[project-root]/.ddev/commands/web/gulp": "assets/commands/web/gulp",
+              "[project-root]/.ddev/commands/web/nvm": "assets/commands/web/nvm",
+              "[project-root]/.ddev/commands/web/php": "assets/commands/web/php",
+              "[project-root]/.ddev/providers/pantheon.yaml": "assets/providers/pantheon.yaml",
+              "[project-root]/.ddev/docker-compose.browsersync.yaml": "assets/docker-compose.browsersync.yaml",
+              "[project-root]/.gitignore": {
+                  "append": "assets/gitignore.txt"
+              },
               "[project-root]/.ddev/config.yaml": {
                   "mode": "replace",
-                  "path": "config.yaml",
+                  "path": "assets/config.yaml",
                   "overwrite": false
               }
             }
