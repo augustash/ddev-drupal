@@ -3,3 +3,5 @@
 /.ddev/providers
 /.ddev/assets
 /.ddev/docker-compose.browsersync.yaml
+/.ddev/docker-compose.local.yaml
+/auth.json
