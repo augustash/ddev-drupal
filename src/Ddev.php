@@ -112,7 +112,6 @@ class Ddev {
       try {
         $fileSystem = new Filesystem();
         $config = Yaml::parseFile(static::$configPath);
-        $config['hooks']['post-start'][] = '"exec-host: ddev solrcollection"';
         $fileSystem->copy(__DIR__ . '/../assets/web-build/Dockerfile.ddev-wkhtmltox', __DIR__ . '/../../../../.ddev/web-build/Dockerfile.ddev-wkhtmltox');
         $io->info('[Enabled] wkhtmltopdf');
       }
