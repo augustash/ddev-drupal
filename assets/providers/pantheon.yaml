@@ -74,7 +74,7 @@ files_pull_command:
     PANTHEON_ARRAY=( $PANTHEON_INFO )
     PANTHEON_UUID=${PANTHEON_ARRAY[0]}
     echo "${BOLD}Downloading files from Pantheon...${NORM}"
-    rsync -rLvz --copy-unsafe-links --size-only --ipv4 --progress --exclude="/rugs/composites" --exclude="/php" --exclude="/styles" --exclude="/css" --exclude="/js" --exclude="/webform" --include="*/" --include="*.jpg" --include="*.jpeg" --include="*.gif" --include="*.png" --include="*.svg" --include="*.eot" --include="*.ttf" --include="*.woff" --include="*.woff2" --include="*.json" --include="*.css" --include="/exo-file/*" --exclude="*" -e 'ssh -p 2222' "$PANTHEON_ENV.$PANTHEON_UUID@appserver.$PANTHEON_ENV.$PANTHEON_UUID.drush.in:files/" /var/www/html/web/sites/default/files
+    rsync -rLvz --copy-unsafe-links --size-only --ipv4 --progress --exclude="/php" --exclude="/styles" --exclude="/css" --exclude="/js" --exclude="/webform" --include="*/" --include="*.jpg" --include="*.jpeg" --include="*.gif" --include="*.png" --include="*.svg" --include="*.eot" --include="*.ttf" --include="*.woff" --include="*.woff2" --include="*.json" --include="*.css" --include="/exo-file/*" --exclude="*" -e 'ssh -p 2222' "$PANTHEON_ENV.$PANTHEON_UUID@appserver.$PANTHEON_ENV.$PANTHEON_UUID.drush.in:files/" /var/www/html/web/sites/default/files
 
 files_import_command:
   command: |
