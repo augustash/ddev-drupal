@@ -9,6 +9,11 @@ Root level:
 }
 ```
 
+extra -> allowed-packages:
+```
+"augustash/ddev"
+```
+
 Run:
 ```
 composer require augustash/ddev-drupal && composer run-script ddev-setup
