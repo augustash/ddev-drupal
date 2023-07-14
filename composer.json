@@ -18,13 +18,14 @@
               "[project-root]/.ddev/commands/web/php": "assets/commands/web/php",
               "[project-root]/.ddev/providers/pantheon.yaml": "assets/providers/pantheon.yaml",
               "[project-root]/.ddev/docker-compose.browsersync.yaml": "assets/docker-compose.browsersync.yaml",
-              "[project-root]/.gitignore": {
-                  "mode": "append",
-                  "path": "assets/.gitignore.append"
-              },
               "[project-root]/.ddev/config.yaml": {
                   "mode": "replace",
                   "path": "assets/config.yaml",
+                  "overwrite": false
+              },
+              "[project-root]/sites/default/settings.local.php": {
+                  "mode": "replace",
+                  "path": "assets/settings.local.php",
                   "overwrite": false
               }
             }
