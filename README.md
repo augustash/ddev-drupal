@@ -4,16 +4,14 @@ Set the following to root composer.json:
 
 Root level:
 ```
-"scripts": {
-    "post-install-cmd": "Augustash\\Ddev::postPackageInstall"
-},
-```
-
-Repositories:
-```
 {
     "url": "https://github.com/augustash/ddev.git",
     "type": "git"
+}
+```
+```
+"scripts": {
+    "post-install-cmd": "Augustash\\Ddev::postPackageInstall"
 }
 ```
 
@@ -32,19 +30,24 @@ Root .gitignore:
 
 Run:
 ```
-composer require augustash/ddev -W
-```
-
-```
+composer require augustash/ddev
 composer install
 ```
 
-Compose install will trigger our configuration script.
-Follow prompts.
+Compose install will trigger configuration script, follow prompts.
 
 # Configuration
 
-On composer install, you will be prompted for client-code and host-site-name. These are used to set the config.yaml name and project environment variables.
+On composer install, you will be prompted for:
+  - client code
+  - pantheon site name
+  - site environment
+  - drupal version
+  - php version
+  - solr support
+  - wkhtmltopdf support
+  
+These are used to set the config.yaml name and project environment variables.
 
 # Database
 
@@ -53,7 +56,7 @@ Database will be downloaded automatically, this is handled in /.ddev/commands/ho
 
 # Solr
 
-You will be prompted to install solr. If you select yes, solr will be added to the project.
+You will be prompted to install solr.
 
 If installed, collection/core will be automatically created. Collection/core is aliased to 'search'.
 
@@ -84,7 +87,10 @@ Write Solr settings above to [client-code].settings.local.php and settings.local
 
 Write
 ```
-/.ddev/
+# Ignore ddev files
+/.ddev/commands
+/.ddev/providers
+/.ddev/docker-compose.browsersync.yaml
 ```
 to gitignore.
 
