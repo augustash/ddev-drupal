@@ -2,6 +2,7 @@
     "name": "augustash/ddev-drupal",
     "description": "AugustAsh ddev installer.",
     "type": "library",
+    "license": "MIT",
     "require": {
         "php": ">=7"
     },
