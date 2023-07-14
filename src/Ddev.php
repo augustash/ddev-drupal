@@ -19,6 +19,13 @@ class Ddev {
   private static $configPath = __DIR__ . '/../../../../.ddev/config.yaml';
 
   /**
+   * Path to gitignore file.
+   *
+   * @var string
+   */
+  private static $gitIgnorePath = __DIR__ . '/../../../../.gitignore';
+
+  /**
    * Run on post-install-cmd.
    *
    * @param \Composer\Script\Event $event
@@ -66,6 +73,16 @@ class Ddev {
       try {
         $fileSystem->dumpFile(static::$configPath, Yaml::dump($config));
         $io->info('<info>Config.yaml updated.</info>');
+      }
+      catch (\Error $e) {
+        $io->error('<error>' . $e->getMessage() . '</error>');
+      }
+
+      // Update .gitignore.
+      try {
+        $gitignore = $fileSystem->exists(static::$gitIgnorePath) ? file_get_contents(__DIR__ . '/../../../../.gitignore') : '';
+        $gitignore .= "\n" . file_get_contents(__DIR__ . '/../assets/.gitignore.append');
+        $fileSystem->dumpFile(static::$gitIgnorePath, $gitignore);
       }
       catch (\Error $e) {
         $io->error('<error>' . $e->getMessage() . '</error>');
