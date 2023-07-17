@@ -23,11 +23,6 @@
                   "mode": "replace",
                   "path": "assets/config.yaml",
                   "overwrite": false
-              },
-              "[web-root]/sites/default/settings.local.php": {
-                  "mode": "replace",
-                  "path": "assets/settings.local.php",
-                  "overwrite": false
               }
             }
         }

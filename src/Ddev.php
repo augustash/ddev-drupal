@@ -84,6 +84,18 @@ class Ddev {
         $io->error('<error>' . $e->getMessage() . '</error>');
       }
 
+      // Add settings.local.php.
+      $settingsLocalPath = static::getRootPath() . static::$settingsLocalPath;
+      if (!$fileSystem->exists($settingsLocalPath)) {
+        try {
+          $data = file_get_contents(__DIR__ . '/../assets/settings.local.php');
+          $fileSystem->dumpFile($settingsLocalPath, $data);
+        }
+        catch (\Error $e) {
+          $io->error('<error>' . $e->getMessage() . '</error>');
+        }
+      }
+
       // Update .gitignore.
       try {
         $gitignore = $fileSystem->exists(static::$gitIgnorePath) ? file_get_contents(static::$gitIgnorePath) : '';
