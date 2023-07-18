@@ -1,3 +1,8 @@
+# Troubleshooting
+
+Server [server-name] is not a Solr server.
+  An existing solr server is configured as a database server.
+    Ensure your settings.local overrides are correct.
 # Setup
 
 Set the following to root composer.json:
@@ -66,9 +71,5 @@ $config['search_api.server.local']['backend_config']['connector_config']['port']
 ```
 
 # TODO:
-
-Nothing currently.
-
-# Troubleshooting
 
 Nothing currently.
