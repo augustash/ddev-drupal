@@ -11,7 +11,7 @@ Root level:
 
 extra -> allowed-packages:
 ```
-"augustash/ddev"
+"augustash/ddev-drupal"
 ```
 
 Run:
