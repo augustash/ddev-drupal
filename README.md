@@ -16,7 +16,7 @@ extra -> allowed-packages:
 
 Run:
 ```
-composer require augustash/ddev-drupal && composer run-script ddev-setup
+composer require augustash/ddev-drupal && composer ddev-setup
 ```
 
 Composer install will trigger configuration script, follow prompts.
