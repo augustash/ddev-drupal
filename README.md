@@ -8,6 +8,12 @@ Configset upload failed with error code 405: Solr HTTP error: OK (405)
 Solr HTTP error: OK (405)
   Rerun ddev start.
 
+Failed to execute command drush en search_api_solr_admin -y
+Failed to execute command drush sapi-sl --field=id:
+Failed to execute command drush solr-upload-conf
+  Run composer require drupal/search_api_solr_admin
+  Run ddev solrcollection
+
 # Setup
 
 Set the following to root composer.json:
