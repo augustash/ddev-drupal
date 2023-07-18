@@ -3,6 +3,11 @@
 Server [server-name] is not a Solr server.
   An existing solr server is configured as a database server.
     Ensure your settings.local overrides are correct.
+
+Configset upload failed with error code 405: Solr HTTP error: OK (405)
+Solr HTTP error: OK (405)
+  Rerun ddev start.
+
 # Setup
 
 Set the following to root composer.json:
