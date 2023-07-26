@@ -1,5 +1,15 @@
 # Troubleshooting
 
+The server with ID 'local' could not be retrieved for index 'Global'.
+  The server 'local' does not exist.
+  Comment out configuration overrides in settings.local.php.
+    Start ddev, create the server [name].
+      Make sure [name] matches the configuration overrides.
+      In configuration definition, and value.
+        Ex. $config['search_api.index.global']['server'] = <mark>'local'</mark>;
+        Ex. $config['search_api.server.local']['backend_config']['connector'] = 'solr_cloud_basic_auth';
+          Specific attention to ['search_api.server.<mark>local</mark>'].
+
 Server [server-name] is not a Solr server.
   An existing solr server is configured as a database server.
     Remove this server and create a new solr cloud server.
