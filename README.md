@@ -1,3 +1,19 @@
+# Troubleshooting
+
+Server [server-name] is not a Solr server.
+  An existing solr server is configured as a database server.
+    Ensure your settings.local overrides are correct.
+
+Configset upload failed with error code 405: Solr HTTP error: OK (405)
+Solr HTTP error: OK (405)
+  Rerun ddev start.
+
+Failed to execute command drush en search_api_solr_admin -y
+Failed to execute command drush sapi-sl --field=id:
+Failed to execute command drush solr-upload-conf
+  Run composer require drupal/search_api_solr_admin
+  Run ddev solrcollection
+
 # Setup
 
 Set the following to root composer.json:
@@ -11,20 +27,20 @@ Root level:
 
 extra -> allowed-packages:
 ```
-"augustash/ddev"
+"augustash/ddev-drupal"
 ```
 
 Run:
 ```
-composer require augustash/ddev-drupal && composer run-script ddev-setup
+composer require augustash/ddev-drupal && composer ddev-setup
 ```
 
-Compose install will trigger configuration script, follow prompts.
+Composer install will trigger configuration script, follow prompts.
 
 # Configuration
 
 On ddev-setup, you will be prompted for:
-  - client code
+  - Client code
   - Pantheon site name
   - Pantheon site environment
   - Drupal version
@@ -32,7 +48,7 @@ On ddev-setup, you will be prompted for:
   - Solr support
   - wkhtmltopdf support
 
-These are used to set the config.yaml name and project environment variables.
+These are used to set config.yaml ddev configuration.
 
 # Database
 
@@ -43,11 +59,12 @@ Database will be downloaded automatically, this is handled in /.ddev/commands/ho
 
 You will be prompted to install solr.
 
-If installed, collection/core will be automatically created. Collection/core is aliased to 'search'.
+If installed, collection/core will be automatically created, collection/core is aliased to 'search'.
+
+Create/assign server/index names and configuration overrides accordingly.
+Augustash setups are usually an index of global and server of local.
 
 Verify the below code has been adding to the site settings.local.php.
-Create/assign server/index names and configuration overrides accordingly.
-Our setups are usually an index of global and server of local.
 
 ```
 /**
@@ -67,16 +84,3 @@ $config['search_api.server.local']['backend_config']['connector_config']['port']
 # TODO:
 
 Nothing currently.
-
-# Troubleshooting
-
-Unable to install modules search_api_solr_admin due to missing modules search_api_solr_admin.
-Command "solr-upload-conf" is not defined.
-  Solr is attempting to install. Did you run composer install and answer no/n?
-    Delete .ddev entirely and composer install, follow prompts.
-    Or, does your config.yaml contain '[client-code]' still?
-      Yes, run composer install.
-      No, comment out '- exec-host: ddev solrcollection' in config.yaml.
-      Remove docker-compose.solr.yaml and solr directory.
-
-[configuration-options]: https://ddev.readthedocs.io/en/latest/users/configuration/config/

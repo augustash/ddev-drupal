@@ -56,22 +56,26 @@ class Ddev {
       $docRoot = static::$docRoot = $io->ask('<info>Document root?</info>  [<comment>web</comment>]:' . "\n > ", 'web') ?: '';
       $siteName = $io->ask('<info>Pantheon site name</info> [<comment>' . 'aai' . $clientCode . '</comment>]:' . "\n > ", 'aai' . $clientCode);
       $siteEnv = $io->ask('<info>Pantheon site environment (dev|test|live)</info> [<comment>live</comment>]:' . "\n > ", 'live');
-      $drupalVersion = $io->select('<info>Drupal version</info> [<comment>10</comment>]:', [
-        '7' => '7',
-        '8' => '8',
-        '9' => '9',
-        '10' => '10',
-      ], '10');
-      $phpVersion = $io->select('<info>PHP version</info> [<comment>8.1</comment>]:', [
-        '7.4' => '7.4',
-        '8.1' => '8.1',
-        '8.2' => '8.2',
-      ], '8.1');
+      
+      $drupalVersions = [
+        '7',
+        '8',
+        '9',
+        '10',
+      ];
+      $drupalVersion = $io->select('<info>Drupal version</info> [<comment>10</comment>]:', $drupalVersions, '10');
+
+      $phpVersions = [
+        '7.4',
+        '8.1',
+        '8.2',
+      ];
+      $phpVersion = $io->select('<info>PHP version</info> [<comment>8.1</comment>]:', $phpVersions, '8.1');
 
       $config['name'] = $clientCode;
       $config['docroot'] = $docRoot;
-      $config['type'] = 'drupal' . $drupalVersion;
-      $config['php_version'] = $phpVersion;
+      $config['type'] = 'drupal' . $drupalVersions[$drupalVersion];
+      $config['php_version'] = $phpVersions[$phpVersion];
       $config['web_environment'] = [
         'project=' . $siteName . '.' . $siteEnv,
       ];
