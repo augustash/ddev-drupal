@@ -1,32 +1,32 @@
 # Troubleshooting
 
-The server with ID 'local' could not be retrieved for index 'Global'.
-  The server 'local' does not exist.
-  Comment out configuration overrides in settings.local.php.
-    Start ddev, create the server [name].
-      Make sure [name] matches the configuration overrides.
-      In configuration definition, and value.
-        Ex. $config['search_api.index.global']['server'] = <mark>'local'</mark>;
-        Ex. $config['search_api.server.local']['backend_config']['connector'] = 'solr_cloud_basic_auth';
-          Specific attention to ['search_api.server.<mark>local</mark>'].
+The server with ID 'local' could not be retrieved for index 'Global'.  
+  The server 'local' does not exist.  
+  Comment out configuration overrides in settings.local.php.  
+    Start ddev, create the server [name].  
+      Make sure [name] matches the configuration overrides.  
+      In configuration definition, and value.  
+        Ex. $config['search_api.index.global']['server'] = <mark>'local'</mark>;  
+        Ex. $config['search_api.server.local']['backend_config']['connector'] = 'solr_cloud_basic_auth';  
+          Specific attention to ['search_api.server.<mark>local</mark>'].  
 
-Server [server-name] is not a Solr server.
-  An existing solr server is configured as a database server.
-    Remove this server and create a new solr cloud server.
-    Ensure your settings.local overrides are correct.
+Server [server-name] is not a Solr server.  
+  An existing solr server is configured as a database server.  
+    Remove this server and create a new solr cloud server.  
+    Ensure your settings.local overrides are correct.  
 
 Configset upload failed with error code 405: Solr HTTP error: OK (405)
-Solr HTTP error: OK (405)
+Solr HTTP error: OK (405).  
   Rerun ddev start.
 
-Failed to execute command drush en search_api_solr_admin -y
-Failed to execute command drush sapi-sl --field=id:
-Failed to execute command drush solr-upload-conf
-  Run composer require drupal/search_api_solr_admin -W.
-  Run ddev solrcollection.
+Failed to execute command drush en search_api_solr_admin -y  
+Failed to execute command drush sapi-sl --field=id:  
+Failed to execute command drush solr-upload-conf  
+  Run composer require drupal/search_api_solr_admin -W.  
+  Run ddev solrcollection.  
 
-TypeError: Drupal\search_api_solr\Utility\SolrCommandHelper::__construct(): Argument #4 ($configset_controller) must be of type Drupal\search_api_solr\Controller\SolrConfigSetController
-  Update drupal/search_api_pantheon.
+TypeError: Drupal\search_api_solr\Utility\SolrCommandHelper::__construct(): Argument #4 ($configset_controller) must be of type Drupal\search_api_solr\Controller\SolrConfigSetController.  
+  Update drupal/search_api_pantheon.  
 
 # Setup
 
