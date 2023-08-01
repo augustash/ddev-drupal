@@ -14,8 +14,6 @@
  * at the bottom of 'sites/example.com/settings.php'.
  */
 
-use Drupal\Component\Assertion\Handle;
-
 /**
  * Assertions.
  *
@@ -33,7 +31,7 @@ use Drupal\Component\Assertion\Handle;
  * @see https://wiki.php.net/rfc/expectations
  */
 assert_options(ASSERT_ACTIVE, TRUE);
-Handle::register();
+assert_options(ASSERT_EXCEPTION, TRUE);
 
 /**
  * Enable local development services.
