@@ -1,5 +1,16 @@
 # Troubleshooting
 
+#### Solr version is 8.8.2 in docker-compose.solr, but does not match server version.
+  - Build version was changed to 8.8.2 to match Pantheon hosts exact version.
+    - Recreate your collection.
+      - Navigate in your browser to http://[site-name].ddev.site:8983/solr/#/~collections.
+        - Delete existing collection.
+        - Run ddev solrcollection.
+    - Reload your collection.
+      - Navigate to http://[site-name].ddev.site/admin/config/search/search-api/server/[server-name].
+        - Click 'Reload Collection'.
+        - Server version should now be 8.8.2.
+
 #### Failed to execute command drush en search_api_solr_admin -y -q: exit status 1<br />Command sapi-sl was not found. Drush was unable to query the database.
   - The key part is 'Drush was unable to query the database'.
     - Make sure you do not have database credentials in settings.local.
