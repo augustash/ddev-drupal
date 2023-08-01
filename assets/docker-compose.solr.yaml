@@ -21,7 +21,7 @@
 version: '3.6'
 services:
   solr1:
-    image: solr:8
+    image: solr:8.8.2
     container_name: ddev-${DDEV_SITENAME}-solr1
     expose:
       - 8983
@@ -46,7 +46,7 @@ services:
     command: bash -c "docker-entrypoint.sh solr zk cp file:/mnt/ddev_config/solr/security.json zk:/security.json && exec solr-foreground"
 
   solr2:
-    image: solr:8
+    image: solr:8.8.2
     container_name: ddev-${DDEV_SITENAME}-solr2
     expose:
       - 8984
@@ -69,7 +69,7 @@ services:
       - solr2:/var/solr
 
   solr3:
-    image: solr:8
+    image: solr:8.8.2
     container_name: ddev-${DDEV_SITENAME}-solr3
     expose:
       - 8985
