@@ -1,5 +1,11 @@
 # Troubleshooting
 
+#### Failed to execute command drush en search_api_solr_admin -y -q: exit status 1<br />Command sapi-sl was not found. Drush was unable to query the database.
+  - The key part is 'Drush was unable to query the database'.
+    - Make sure you do not have database credentials in settings.local.
+    - You have an empty database, partial import, something is wrong with it.
+    - Download a fresh database.
+
 #### The server with ID 'local' could not be retrieved for index 'Global'.
   - The server 'local' does not exist.
   - Comment out configuration overrides in settings.local.php.
