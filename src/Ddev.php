@@ -80,6 +80,7 @@ class Ddev {
         'project=' . $siteName . '.' . $siteEnv,
       ];
 
+      // config.yaml.
       try {
         $fileSystem->dumpFile(static::$configPath, Yaml::dump($config, 2, 2));
         $io->info('<info>Config.yaml updated.</info>');
@@ -88,7 +89,7 @@ class Ddev {
         $io->error('<error>' . $e->getMessage() . '</error>');
       }
 
-      // Add settings.local.php.
+      // settings.local.php.
       $settingsLocalPath = static::getRootPath() . static::$settingsLocalPath;
       if (!$fileSystem->exists($settingsLocalPath)) {
         try {
@@ -100,7 +101,7 @@ class Ddev {
         }
       }
 
-      // Update .gitignore.
+      // .gitignore.
       try {
         $gitignore = $fileSystem->exists(static::$gitIgnorePath) ? file_get_contents(static::$gitIgnorePath) : '';
         if (strpos($gitignore, '# Ignore ddev files') === FALSE) {
@@ -110,6 +111,15 @@ class Ddev {
       }
       catch (\Error $e) {
         $io->error('<error>' . $e->getMessage() . '</error>');
+      }
+
+      // docker-compose.browsersync.yaml.
+      try {
+        $fileSystem->copy(__DIR__ . '/../assets/docker-compose.browsersync.yaml', static::getRootPath() . '.ddev/docker-compose.browsersync.yaml');
+        $io->info('<info>docker-compose.browsersync.yaml added.</info>');
+      }
+      catch (\Error $e) {
+        $io->error('<error>'. $e->getMessage() .'</error>');
       }
 
       static::installSolr($event);
@@ -132,8 +142,8 @@ class Ddev {
         $config = Yaml::parseFile(static::$configPath);
         $config['hooks']['post-start'][]['exec-host'] = 'ddev solrcollection';
         $fileSystem->dumpFile(static::$configPath, Yaml::dump($config));
-        $fileSystem->mirror(__DIR__ . '/../assets/solr', __DIR__ . '/../../../../.ddev/solr');
-        $fileSystem->copy(__DIR__ . '/../assets/docker-compose.solr.yaml', __DIR__ . '/../../../../.ddev/docker-compose.solr.yaml');
+        $fileSystem->mirror(__DIR__ . '/../assets/solr', static::getRootPath() . '.ddev/solr');
+        $fileSystem->copy(__DIR__ . '/../assets/docker-compose.solr.yaml', static::getRootPath() . '.ddev/docker-compose.solr.yaml');
         $io->info('[Enabled] Solr');
       }
       catch (\Error $e) {
@@ -156,8 +166,8 @@ class Ddev {
       }
     }
     else {
-      $fileSystem->remove(__DIR__ . '/../../../../.ddev/solr');
-      $fileSystem->remove(__DIR__ . '/../../../../.ddev/docker-compose.solr.yaml');
+      $fileSystem->remove(static::getRootPath() . '.ddev/solr');
+      $fileSystem->remove(static::getRootPath() . '.ddev/docker-compose.solr.yaml');
     }
   }
 
@@ -171,7 +181,7 @@ class Ddev {
     if ($status) {
       try {
         $fileSystem = new Filesystem();
-        $fileSystem->copy(__DIR__ . '/../assets/web-build/Dockerfile.ddev-wkhtmltox', __DIR__ . '/../../../../.ddev/web-build/Dockerfile.ddev-wkhtmltox');
+        $fileSystem->copy(__DIR__ . '/../assets/web-build/Dockerfile.ddev-wkhtmltox', static::getRootPath() . '.ddev/web-build/Dockerfile.ddev-wkhtmltox');
         $io->info('[Enabled] wkhtmltopdf');
       }
       catch (\Error $e) {
@@ -179,7 +189,7 @@ class Ddev {
       }
     }
     else {
-      $fileSystem->remove(__DIR__ . '/../../../../.ddev/web-build/Dockerfile.ddev-wkhtmltox');
+      $fileSystem->remove(static::getRootPath() . '.ddev/web-build/Dockerfile.ddev-wkhtmltox');
     }
   }
 
