@@ -3,5 +3,4 @@
 /.ddev/providers
 /.ddev/assets
 /.ddev/docker-compose.local.yaml
-/.ddev/docker-compose.solr.yaml
 /auth.json
