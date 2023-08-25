@@ -88,8 +88,9 @@ class Ddev {
       ];
 
       // Subdomain configuration handling.
-      $subdomains = explode(' ', $io->askConfirmation('<info>Subdomains? (space delimiter) [<comment>no</comment>]</info>:' . "\n > ", FALSE));
+      $subdomains = $io->ask('<info>Subdomains? (space delimiter) [<comment>no</comment>]</info>:' . "\n > ", FALSE);
       if ($subdomains) {
+        $subdomains = explode(' ', $subdomains);
         $config['additional_hostnames'] = [];
 
         foreach ($subdomains as $subdomain) {
