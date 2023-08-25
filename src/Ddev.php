@@ -88,11 +88,13 @@ class Ddev {
       ];
 
       // Subdomain configuration handling.
-      $subdomains = explode(' ', $io->ask('<info>Subdomains? (space delimiter)</info>:' . "\n > "));
-      $config['additional_hostnames'] = [];
+      $subdomains = explode(' ', $io->askConfirmation('<info>Subdomains? (space delimiter) [<comment>no</comment>]</info>:' . "\n > ", FALSE));
+      if ($subdomains) {
+        $config['additional_hostnames'] = [];
 
-      foreach ($subdomains as $subdomain) {
-        $config['additional_hostnames'][] = $subdomain. '.' . $clientCode;
+        foreach ($subdomains as $subdomain) {
+          $config['additional_hostnames'][] = $subdomain. '.' . $clientCode;
+        }
       }
 
       // config.yaml.
