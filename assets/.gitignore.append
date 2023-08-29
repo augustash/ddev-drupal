@@ -5,5 +5,3 @@
 /.ddev/assets
 /.ddev/docker-compose.local.yaml
 /auth.json
-/web/sites/default/settings.ddev.php
-/sites/default/settings.ddev.php
