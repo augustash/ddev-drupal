@@ -61,7 +61,7 @@ Root level:
 }
 ```
 
-extra -> allowed-packages:
+extra -> drupal-scaffold -> allowed-packages:
 ```
 "augustash/ddev-drupal"
 ```
