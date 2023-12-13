@@ -102,15 +102,18 @@ Augustash setups are usually an index of global and server of local.
 
 Verify the below code has been adding to the site settings.local.php.
 
+{LIVE_SERVER} should be replaced with the live solr server name.
+
 ```
 /**
  * Search api local configuration overrides.
  */
 $config['search_api.index.global']['server'] = 'local';
+$config['search_api.server.{LIVE_SERVER}']['status'] = FALSE;
 $config['search_api.server.local']['status'] = TRUE;
 $config['search_api.server.local']['backend_config']['connector'] = 'solr_cloud_basic_auth';
 $config['search_api.server.local']['backend_config']['connector_config']['scheme'] = 'http';
-$config['search_api.server.local']['backend_config']['connector_config']['host'] = $_ENV['DDEV_HOSTNAME'];
+$config['search_api.server.local']['backend_config']['connector_config']['host'] = parse_url($_ENV['DDEV_PRIMARY_URL'])['host'];
 $config['search_api.server.local']['backend_config']['connector_config']['core'] = 'search';
 $config['search_api.server.local']['backend_config']['connector_config']['username'] = 'solr';
 $config['search_api.server.local']['backend_config']['connector_config']['password'] = 'SolrRocks';
