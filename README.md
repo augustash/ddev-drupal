@@ -91,33 +91,16 @@ These are used to set config.yaml ddev configuration.
 Database will be downloaded automatically, this is handled in /.ddev/commands/host/db.
   Will not download if there are tables in the existing local db.
 
+Db command is:
+  ddev auth ssh && ddev pull pantheon --skip-files -y
+
 # Solr
 
 You will be prompted to install solr.
 
 If installed, collection/core will be automatically created, collection/core is aliased to 'search'.
 
-Create/assign server/index names and configuration overrides accordingly.
-Augustash setups are usually an index of global and server of local.
-
-Verify the below code has been adding to the site settings.local.php.
-
-{LIVE_SERVER} should be replaced with the live solr server name.
-
-```
-/**
- * Search api local configuration overrides.
- */
-$config['search_api.index.global']['server'] = 'local';
-$config['search_api.server.{LIVE_SERVER}']['status'] = FALSE;
-$config['search_api.server.local']['status'] = TRUE;
-$config['search_api.server.local']['backend_config']['connector'] = 'solr_cloud_basic_auth';
-$config['search_api.server.local']['backend_config']['connector_config']['scheme'] = 'http';
-$config['search_api.server.local']['backend_config']['connector_config']['host'] = parse_url($_ENV['DDEV_PRIMARY_URL'])['host'];
-$config['search_api.server.local']['backend_config']['connector_config']['core'] = 'search';
-$config['search_api.server.local']['backend_config']['connector_config']['username'] = 'solr';
-$config['search_api.server.local']['backend_config']['connector_config']['password'] = 'SolrRocks';
-$config['search_api.server.local']['backend_config']['connector_config']['port'] = 8983;
+settings.local search api configuration overrides will be set automatically.
 ```
 
 # TODO:
