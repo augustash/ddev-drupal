@@ -17,7 +17,11 @@ get_active_server() {
       echo 'There is no local search api server, create one and then run ddev solrcollection, or ddev restart.';
       echo
     else
-      ddev exec drush solr-upload-conf "$server" --alias=search -q
+      if ddev exec drush solr-upload-conf "$server" --alias=search -q; then
+        echo 'Solr configuration uploaded.'
+      else
+        echo 'If you are encountering an explode() issue in SearchApiPantheonSolrConfigFilesAlter.php on line 28, limit drupal/search_api_pantheon to version 8.1.4.'
+      fi
     fi
   done
 }
