@@ -7,3 +7,5 @@
 /auth.json
 /web/sites/default/settings.ddev.php
 /sites/default/settings.ddev.php
+!/web/themes/*/.gitignore
+!/web/modules/custom/**/.gitignore
