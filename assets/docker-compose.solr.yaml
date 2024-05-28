@@ -18,7 +18,6 @@
 #        "SolrRocks".
 #      - press the "Upload Configset" button.
 
-version: '3.6'
 services:
   solr1:
     image: solr:8.11.2
