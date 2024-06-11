@@ -59,7 +59,7 @@ class Ddev {
       $io = $event->getIO();
       $config = Yaml::parseFile(static::$configPath);
 
-      $clientCode = $io->ask('<info>Client code?</info>:' . "\n > ");
+      $clientCode = $io->ask('<info>Client code? (without aai, it will be included with the site name)</info>:' . "\n > ");
       $docRoot = static::$docRoot = $io->ask('<info>Document root?</info>  [<comment>web</comment>]:' . "\n > ", 'web') ?: '';
       $siteName = $io->ask('<info>Pantheon site name</info> [<comment>' . 'aai' . $clientCode . '</comment>]:' . "\n > ", 'aai' . $clientCode);
       $siteEnv = $io->ask('<info>Pantheon site environment (dev|test|live)</info> [<comment>live</comment>]:' . "\n > ", 'live');
