@@ -49,13 +49,21 @@ auth_command:
 
 db_pull_command:
   command: |
-    set -x   # You can enable bash debugging output by uncommenting
+    # set -x   # You can enable bash debugging output by uncommenting
     set -eu -o pipefail
     ls /var/www/html/.ddev >/dev/null # This just refreshes stale NFS if possible
-    pushd /var/www/html/.ddev/.downloads >/dev/null
-    connection=$(terminus connection:info ${project} --field='MySQL Command')
-    connection=${connection/'mysql'/'mysqldump -v'}
-    eval "$connection --single-transaction --default-character-set=utf8mb4 --quick | gzip > db.sql.gz"
+
+    if [ ${project#*.} == 'live' ]; then
+      terminus ldb ${project} --overwrite --yes
+      # Gunzip works, but doesn't think it does, end silently.
+      gunzip -q $HOME/pantheon-local-copies/db/${project%.*}-db.tgz | tar tvzf - &> /dev/null || true
+      mv $HOME/pantheon-local-copies/db/${project%.*}-db.tar /var/www/html/.ddev/.downloads/db.sql
+    else
+      pushd /var/www/html/.ddev/.downloads >/dev/null
+      connection=$(terminus connection:info ${project} --field='MySQL Command')
+      connection=${connection/'mysql'/'mysqldump -v'}
+      eval "$connection --single-transaction --default-character-set=utf8mb4 --quick | gzip > db.sql.gz"
+    fi
 
 files_pull_command:
   command: |

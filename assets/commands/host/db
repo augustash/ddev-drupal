@@ -7,8 +7,9 @@
 # Check if any tables exist in database.
 # If not, pull database.
 
-if [[ ! $(ddev drush sqlq "USE db; SHOW tables") ]]; then
-  echo 'No database is installed, pulling.'
+if [[ ! $(ddev drush sqlq "USE db; SHOW tables") || $1 == '-f' ]]; then
   ddev auth ssh
   ddev pull pantheon --skip-files -y
+else
+  echo 'A database is already installed. Use -f to force.'
 fi
