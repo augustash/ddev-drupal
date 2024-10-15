@@ -22,10 +22,6 @@ get_active_server() {
   done
 }
 
-# Check if any tables exist in database.
-# If not, pull database.
-ddev db
-
 ddev exec drush en search_api_solr_admin -y -q
 
 get_active_server;
