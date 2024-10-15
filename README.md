@@ -52,6 +52,15 @@
 
 # Setup
 
+### Single line
+
+```bash
+composer config --json --merge extra.drupal-scaffold.allowed-packages '["augustash/ddev-drupal"]' && composer config scripts.ddev-setup "Augustash\\Ddev::postPackageInstall" && composer require augustash/ddev-drupal && composer ddev-setup
+```
+
+
+### Manual
+
 Set the following to root composer.json:
 
 Root level:
