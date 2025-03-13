@@ -10,6 +10,7 @@
 if [[ ! $(ddev drush sqlq "USE db; SHOW tables") || $1 == '-f' ]]; then
   ddev auth ssh
   ddev pull pantheon --skip-files -y
+  ddev drush cr && ddev drush cim -y
 else
-  echo 'A database is already installed. Use -f to force.'
+  echo 'A database is already installed. Use "ddev db -f" to force.'
 fi
