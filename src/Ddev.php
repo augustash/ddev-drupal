@@ -79,6 +79,8 @@ class Ddev {
       ];
       $phpVersion = $io->select('<info>PHP version</info> [<comment>8.1</comment>]:', $phpVersions, '8.1');
 
+      static::downgradeTerminus($event, $phpVersion);
+
       $config['name'] = $clientCode;
       $config['docroot'] = $docRoot;
       $config['type'] = 'drupal' . $drupalVersions[$drupalVersion];
@@ -209,6 +211,31 @@ class Ddev {
     }
     else {
       $fileSystem->remove(static::$ddevRoot . 'web-build/Dockerfile.ddev-wkhtmltox');
+    }
+  }
+
+  /**
+   * Ddev installs its own version of Terminus.
+   * Terminus 4 requires php 8.2.
+   * 
+   * If sites php version is < 8.2, install Terminus 3.
+   */
+  protected static function downgradeTerminus(Event $event, $phpVersion) {
+    $fileSystem = new Filesystem();
+    $io = $event->getIO();
+
+    // Phpversion is option selection number, not actual version.
+    // All future options will be greater than 2.
+    if ($phpVersion < 2) {
+      try {
+        $fileSystem = new Filesystem();
+        $fileSystem->copy(__DIR__ . '/../assets/web-build/Dockerfile.ddev-terminus', static::$ddevRoot . 'web-build/Dockerfile.ddev-terminus');
+      }
+      catch (\Error $e) {
+        $io->error('<error>' . $e->getMessage() . '</error>');
+      }
+    } else {
+      $fileSystem->remove(static::$ddevRoot . 'web-build/Dockerfile.ddev-terminus');
     }
   }
 

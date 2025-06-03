@@ -1,0 +1,3 @@
+RUN if [[ ${DDEV_PHP_VERSION/./} < 82 ]]; then \
+    curl -Ls --fail -o /usr/local/bin/terminus https://github.com/pantheon-systems/terminus/releases/download/3.6.2/terminus.phar; \
+    fi
