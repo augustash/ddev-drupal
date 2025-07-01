@@ -32,7 +32,7 @@ class Ddev {
    */
   private static $settingsLocalPath = 'sites/default/settings.local.php';
 
-    /**
+  /**
    * The ddev root.
    *
    * @var string
@@ -63,12 +63,13 @@ class Ddev {
       $docRoot = static::$docRoot = $io->ask('<info>Document root?</info>  [<comment>web</comment>]:' . "\n > ", 'web') ?: '';
       $siteName = $io->ask('<info>Pantheon site name</info> [<comment>' . 'aai' . $clientCode . '</comment>]:' . "\n > ", 'aai' . $clientCode);
       $siteEnv = $io->ask('<info>Pantheon site environment (dev|test|live)</info> [<comment>live</comment>]:' . "\n > ", 'live');
-      
+
       $drupalVersions = [
         '7',
         '8',
         '9',
         '10',
+        '11',
       ];
       $drupalVersion = $io->select('<info>Drupal version</info> [<comment>10</comment>]:', $drupalVersions, '10');
 
@@ -76,6 +77,7 @@ class Ddev {
         '7.4',
         '8.1',
         '8.2',
+        '8.3',
       ];
       $phpVersion = $io->select('<info>PHP version</info> [<comment>8.1</comment>]:', $phpVersions, '8.1');
 
@@ -96,7 +98,7 @@ class Ddev {
         $config['additional_hostnames'] = [];
 
         foreach ($subdomains as $subdomain) {
-          $config['additional_hostnames'][] = $subdomain. '.' . $clientCode;
+          $config['additional_hostnames'][] = $subdomain . '.' . $clientCode;
         }
       }
 
@@ -139,7 +141,7 @@ class Ddev {
         $io->info('<info>docker-compose.browsersync.yaml added.</info>');
       }
       catch (\Error $e) {
-        $io->error('<error>'. $e->getMessage() .'</error>');
+        $io->error('<error>' . $e->getMessage() . '</error>');
       }
 
       static::installSolr($event);
@@ -217,7 +219,7 @@ class Ddev {
   /**
    * Ddev installs its own version of Terminus.
    * Terminus 4 requires php 8.2.
-   * 
+   *
    * If sites php version is < 8.2, install Terminus 3.
    */
   protected static function downgradeTerminus(Event $event, $phpVersion) {
@@ -234,7 +236,8 @@ class Ddev {
       catch (\Error $e) {
         $io->error('<error>' . $e->getMessage() . '</error>');
       }
-    } else {
+    }
+    else {
       $fileSystem->remove(static::$ddevRoot . 'web-build/Dockerfile.ddev-terminus');
     }
   }
