@@ -55,7 +55,7 @@
 ### Single line
 
 ```bash
-composer config --json --merge extra.drupal-scaffold.allowed-packages '["augustash/ddev-drupal"]' && composer config scripts.ddev-setup "Augustash\\Ddev::postPackageInstall" && composer require augustash/ddev-drupal && composer ddev-setup
+composer config --json --merge extra.drupal-scaffold.allowed-packages '["augustash/ddev-drupal"]' && composer config scripts.ddev-setup "Augustash\\Ddev::postPackageInstall" && composer require --dev augustash/ddev-drupal && composer ddev-setup
 ```
 
 
@@ -77,7 +77,7 @@ extra -> drupal-scaffold -> allowed-packages:
 
 Run:
 ```
-composer require augustash/ddev-drupal && composer ddev-setup
+composer require --dev augustash/ddev-drupal && composer ddev-setup
 ```
 
 Composer install will trigger configuration script, follow prompts.
