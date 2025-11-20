@@ -3,7 +3,7 @@ type: drupal9
 docroot:
 database:
   type: mariadb
-  version: "10.5"
+  version: "10.6"
 mutagen_enabled: true
 webimage_extra_packages: [build-essential, libnotify-bin]
 hooks:
