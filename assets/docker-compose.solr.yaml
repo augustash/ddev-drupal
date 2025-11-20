@@ -91,7 +91,7 @@ services:
       - solr3:/var/solr
 
   zoo:
-    image: bitnami/zookeeper:3.7
+    image: ghcr.io/element-hq/bitnamilegacy/zookeeper:3.7.0-debian-10-r70
     container_name: ddev-${DDEV_SITENAME}-zoo
     hostname: ddev-${DDEV_SITENAME}-zoo
     expose:
