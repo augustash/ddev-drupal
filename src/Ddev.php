@@ -88,7 +88,8 @@ class Ddev {
       $config['type'] = 'drupal' . $drupalVersions[$drupalVersion];
       $config['php_version'] = $phpVersions[$phpVersion];
       $config['web_environment'] = [
-        'project=' . $siteName . '.' . $siteEnv,
+        'PANTHEON_SITE=' . $siteName,
+        'PANTHEON_ENVIRONMENT=' . $siteEnv
       ];
 
       // Subdomain configuration handling.
