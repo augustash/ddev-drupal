@@ -89,7 +89,8 @@ class Ddev {
       $config['php_version'] = $phpVersions[$phpVersion];
       $config['web_environment'] = [
         'PANTHEON_SITE=' . $siteName,
-        'PANTHEON_ENVIRONMENT=' . $siteEnv
+        'PANTHEON_ENVIRONMENT=dev', // If 'live', causes local site redirection to break. Not used by our ddev setup.
+        'WORKING_ENVIRONMENT=' . $siteEnv
       ];
 
       // Subdomain configuration handling.
