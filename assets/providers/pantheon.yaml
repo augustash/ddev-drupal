@@ -26,22 +26,23 @@ auth_command:
     terminus auth:login --machine-token="${TERMINUS_MACHINE_TOKEN}" || ( echo "terminus auth login failed, check your TERMINUS_MACHINE_TOKEN" && exit 1 )
     terminus aliases 2>/dev/null
 
-#make sure env is awake, and grab a fresh DB export
 db_pull_command:
   command: |
     # set -x   # You can enable bash debugging output by uncommenting
     set -eu -o pipefail
-    echo "Using PANTHEON_SITE=${PANTHEON_SITE} WORKING_ENVIRONMENT=${WORKING_ENVIRONMENT}"
-    pushd /var/www/html/.ddev/.downloads >/dev/null
-    echo "Waking up Pantheon environment..."
-    terminus env:wake -- ${PANTHEON_SITE}.${WORKING_ENVIRONMENT}
-    echo "Generating and streaming fresh database dump (this may take several minutes)..."
-    FRESH_DB_DUMP_STRING=$(terminus connection:info "${PANTHEON_SITE}.${WORKING_ENVIRONMENT}" --field=mysql_command | sed 's,^mysql,mysqldump --no-autocommit --single-transaction --opt -Q,')
-    if [ "${DDEV_DEBUG:-}" = "true" ]; then
-      echo "Debug: FRESH_DB_DUMP_STRING=$FRESH_DB_DUMP_STRING"
+    ls /var/www/html/.ddev >/dev/null # This just refreshes stale NFS if possible
+
+    if [ ${WORKING_ENVIRONMENT} == 'live' ]; then
+      terminus ldb ${PANTHEON_SITE} --overwrite --yes
+      # Gunzip works, but doesn't think it does, end silently.
+      gunzip -q $HOME/pantheon-local-copies/db/${PANTHEON_SITE}-db.tgz | tar tvzf - &> /dev/null || true
+      mv $HOME/pantheon-local-copies/db/${PANTHEON_SITE}-db.tar /var/www/html/.ddev/.downloads/db.sql
+    else
+      pushd /var/www/html/.ddev/.downloads >/dev/null
+      connection=$(terminus connection:info ${PANTHEON_SITE}.${WORKING_ENVIRONMENT} --field='MySQL Command')
+      connection=${connection/'mysql'/'mysqldump -v'}
+      eval "$connection --single-transaction --default-character-set=utf8mb4 --quick | gzip > db.sql.gz"
     fi
-    eval "$FRESH_DB_DUMP_STRING | gzip" | dd bs=1M status=progress of=db.sql.gz
-    echo "Database download complete"
 
 files_pull_command:
   command: |
