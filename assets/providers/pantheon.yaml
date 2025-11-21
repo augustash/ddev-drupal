@@ -64,7 +64,7 @@ db_pull_command:
   command: |
     # set -x   # You can enable bash debugging output by uncommenting
     set -eu -o pipefail
-    echo "Using PANTHEON_SITE=${PANTHEON_SITE} PANTHEON_ENVIRONMENT=${WORKING_ENVIRONMENT}"
+    echo "Using PANTHEON_SITE=${PANTHEON_SITE} WORKING_ENVIRONMENT=${WORKING_ENVIRONMENT}"
     pushd /var/www/html/.ddev/.downloads >/dev/null
     echo "Waking up Pantheon environment..."
     terminus env:wake -- ${PANTHEON_SITE}.${WORKING_ENVIRONMENT}
