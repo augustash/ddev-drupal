@@ -17,7 +17,11 @@
               "[project-root]/.ddev/commands/web/gulp": "assets/commands/web/gulp",
               "[project-root]/.ddev/commands/web/nvm": "assets/commands/web/nvm",
               "[project-root]/.ddev/commands/web/php": "assets/commands/web/php",
-              "[project-root]/.ddev/providers/pantheon.yaml": "assets/providers/pantheon.yaml",
+              "[project-root]/.ddev/providers/pantheon.yaml": {
+                  "mode": "replace",
+                  "path": "assets/providers/pantheon.yaml",
+                  "overwrite": true
+              },
               "[project-root]/.ddev/homeadditions/.bash_aliases": "assets/homeadditions/.bash_aliases",
               "[project-root]/.ddev/config.yaml": {
                   "mode": "replace",
