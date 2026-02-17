@@ -3,13 +3,13 @@
 ### Single line
 
 ```bash
-composer config --json --merge extra.drupal-scaffold.allowed-packages '["augustash/ddev-drupal"]' && composer config scripts.ddev-setup "Augustash\\Ddev::postPackageInstall" && composer require --dev augustash/ddev-drupal && composer ddev-setup
+ddev composer config --json --merge extra.drupal-scaffold.allowed-packages '["augustash/ddev-drupal"]' && ddev composer config scripts.ddev-setup "Augustash\\Ddev::postPackageInstall" && ddev composer require --dev augustash/ddev-drupal && ddev composer ddev-setup
 ```
 
 # Updating
 There are required changes in ddev 1.24.10.
 ```bash
-composer require --dev augustash/ddev-drupal && composer ddev-setup
+ddev composer require --dev augustash/ddev-drupal && ddev composer ddev-setup
 ```
 
 # Configuration
