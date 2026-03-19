@@ -22,7 +22,18 @@ auth_command:
   command: |
     set -eu -o pipefail
     if [ -z "${TERMINUS_MACHINE_TOKEN:-}" ]; then echo "Please make sure you have set TERMINUS_MACHINE_TOKEN in ~/.ddev/global_config.yaml" && exit 1; fi
-    if [ -z "${PANTHEON_SITE:-}" ]; then echo "Please make sure you have set PANTHEON_SITE via config.yaml or with '--environment=PANTHEON_SITE=xxx'" && exit 1; fi
+    # Support both new (DDEV_PANTHEON_*) and legacy (PANTHEON_*) variable names
+    # Prefer DDEV_PANTHEON_* if set, otherwise fall back to PANTHEON_*
+    if [ -n "${PANTHEON_SITE:-}" ] && [ -z "${DDEV_PANTHEON_SITE:-}" ]; then
+      echo "Warning: PANTHEON_SITE is deprecated and conflicts with Pantheon's own environment variables. Please use DDEV_PANTHEON_SITE instead." >&2
+      DDEV_PANTHEON_SITE="${PANTHEON_SITE}"
+    fi
+    if [ -n "${PANTHEON_ENVIRONMENT:-}" ] && [ -z "${DDEV_PANTHEON_ENVIRONMENT:-}" ]; then
+      echo "Warning: PANTHEON_ENVIRONMENT is deprecated and conflicts with Pantheon's own environment variables. Please use DDEV_PANTHEON_ENVIRONMENT instead." >&2
+      DDEV_PANTHEON_ENVIRONMENT="${PANTHEON_ENVIRONMENT}"
+    fi
+    if [ -z "${DDEV_PANTHEON_SITE:-}" ]; then echo "Please make sure you have set DDEV_PANTHEON_SITE via config.yaml or with '--environment=DDEV_PANTHEON_SITE=xxx'" && exit 1; fi
+    if [ -z "${DDEV_PANTHEON_ENVIRONMENT:-}" ]; then echo "Please make sure you have set DDEV_PANTHEON_ENVIRONMENT via config.yaml or with '--environment=DDEV_PANTHEON_ENVIRONMENT=xxx'" && exit 1; fi
     terminus auth:login --machine-token="${TERMINUS_MACHINE_TOKEN}" || ( echo "terminus auth login failed, check your TERMINUS_MACHINE_TOKEN" && exit 1 )
     terminus aliases 2>/dev/null
 
@@ -32,14 +43,14 @@ db_pull_command:
     set -eu -o pipefail
     ls /var/www/html/.ddev >/dev/null # This just refreshes stale NFS if possible
 
-    if [ ${WORKING_ENVIRONMENT} == 'live' ]; then
-      terminus ldb ${PANTHEON_SITE} --overwrite --yes
+    if [ ${DDEV_PANTHEON_ENVIRONMENT} == 'live' ]; then
+      terminus ldb ${DDEV_PANTHEON_SITE} --overwrite --yes
       # Gunzip works, but doesn't think it does, end silently.
-      gunzip -q $HOME/pantheon-local-copies/db/${PANTHEON_SITE}-db.tgz | tar tvzf - &> /dev/null || true
-      mv $HOME/pantheon-local-copies/db/${PANTHEON_SITE}-db.tar /var/www/html/.ddev/.downloads/db.sql
+      gunzip -q $HOME/pantheon-local-copies/db/${DDEV_PANTHEON_SITE}-db.tgz | tar tvzf - &> /dev/null || true
+      mv $HOME/pantheon-local-copies/db/${DDEV_PANTHEON_SITE}-db.tar /var/www/html/.ddev/.downloads/db.sql
     else
       pushd /var/www/html/.ddev/.downloads >/dev/null
-      connection=$(terminus connection:info ${PANTHEON_SITE}.${WORKING_ENVIRONMENT} --field='MySQL Command')
+      connection=$(terminus connection:info ${DDEV_PANTHEON_SITE}.${DDEV_PANTHEON_ENVIRONMENT} --field='MySQL Command')
       connection=${connection/'mysql'/'mysqldump -v'}
       eval "$connection --single-transaction --default-character-set=utf8mb4 --quick | gzip > db.sql.gz"
     fi
@@ -48,8 +59,15 @@ files_pull_command:
   command: |
     # set -x   # You can enable bash debugging output by uncommenting
     set -eu -o pipefail
+    # Support both new (DDEV_PANTHEON_*) and legacy (PANTHEON_*) variable names
+    if [ -n "${PANTHEON_SITE:-}" ] && [ -z "${DDEV_PANTHEON_SITE:-}" ]; then
+      DDEV_PANTHEON_SITE="${PANTHEON_SITE}"
+    fi
+    if [ -n "${PANTHEON_ENVIRONMENT:-}" ] && [ -z "${DDEV_PANTHEON_ENVIRONMENT:-}" ]; then
+      DDEV_PANTHEON_ENVIRONMENT="${PANTHEON_ENVIRONMENT}"
+    fi
     pushd /var/www/html/.ddev/.downloads >/dev/null;
-    terminus backup:get ${PANTHEON_SITE}.${WORKING_ENVIRONMENT} --element=files --to=files.tgz
+    terminus backup:get ${DDEV_PANTHEON_SITE}.${DDEV_PANTHEON_ENVIRONMENT} --element=files --to=files.tgz
     mkdir -p files && tar --strip-components=1 -C files -zxf files.tgz
 
 # push is very useful for non-production environments, but can be
@@ -60,11 +78,18 @@ db_push_command:
     # set -x   # You can enable bash debugging output by uncommenting
     ssh-add -l >/dev/null || ( echo "Please 'ddev auth ssh' before running this command." && exit 1 )
     set -eu -o pipefail
+    # Support both new (DDEV_PANTHEON_*) and legacy (PANTHEON_*) variable names
+    if [ -n "${PANTHEON_SITE:-}" ] && [ -z "${DDEV_PANTHEON_SITE:-}" ]; then
+      DDEV_PANTHEON_SITE="${PANTHEON_SITE}"
+    fi
+    if [ -n "${PANTHEON_ENVIRONMENT:-}" ] && [ -z "${DDEV_PANTHEON_ENVIRONMENT:-}" ]; then
+      DDEV_PANTHEON_ENVIRONMENT="${PANTHEON_ENVIRONMENT}"
+    fi
     pushd /var/www/html/.ddev/.downloads >/dev/null;
     echo "Waking up Pantheon environment..."
-    terminus env:wake -- ${PANTHEON_SITE}.${WORKING_ENVIRONMENT}
+    terminus env:wake -- ${DDEV_PANTHEON_SITE}.${DDEV_PANTHEON_ENVIRONMENT}
     echo "Dropping existing database on Pantheon..."
-    MYSQL_CMD=$(terminus connection:info "${PANTHEON_SITE}.${WORKING_ENVIRONMENT}" --field=mysql_command)
+    MYSQL_CMD=$(terminus connection:info "${DDEV_PANTHEON_SITE}.${DDEV_PANTHEON_ENVIRONMENT}" --field=mysql_command)
     eval "$MYSQL_CMD -e 'DROP DATABASE pantheon; CREATE DATABASE pantheon;'"
     echo "Uploading database to Pantheon..."
     gzip -dc db.sql.gz | eval "$MYSQL_CMD"
@@ -78,6 +103,12 @@ files_push_command:
     # set -x   # You can enable bash debugging output by uncommenting
     ssh-add -l >/dev/null || ( echo "Please 'ddev auth ssh' before running this command." && exit 1 )
     set -eu -o pipefail
-    ls ${DDEV_FILES_DIR} >/dev/null # This just refreshes stale NFS if possible
-    terminus self:plugin:install terminus-rsync-plugin
-    terminus rsync -y ${DDEV_FILES_DIR}/ ${PANTHEON_SITE}.${WORKING_ENVIRONMENT}:files
+    # Support both new (DDEV_PANTHEON_*) and legacy (PANTHEON_*) variable names
+    if [ -n "${PANTHEON_SITE:-}" ] && [ -z "${DDEV_PANTHEON_SITE:-}" ]; then
+      DDEV_PANTHEON_SITE="${PANTHEON_SITE}"
+    fi
+    if [ -n "${PANTHEON_ENVIRONMENT:-}" ] && [ -z "${DDEV_PANTHEON_ENVIRONMENT:-}" ]; then
+      DDEV_PANTHEON_ENVIRONMENT="${PANTHEON_ENVIRONMENT}"
+    fi
+    COMPOSER_NO_SECURITY_BLOCKING=1 terminus self:plugin:install terminus-rsync-plugin
+    terminus rsync -y ${DDEV_FILES_DIR}/ ${DDEV_PANTHEON_SITE}.${DDEV_PANTHEON_ENVIRONMENT}:files
