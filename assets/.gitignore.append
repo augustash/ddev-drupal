@@ -4,7 +4,6 @@
 /.ddev/xhprof
 /.ddev/php
 /.ddev/homeadditions
-/.ddev/providers
 /.ddev/assets
 /.ddev/docker-compose.local.yaml
 /auth.json
