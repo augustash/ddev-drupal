@@ -54,6 +54,8 @@ class Ddev {
    */
   public static function postPackageInstall(Event $event) {
 
+    static::syncConfig();
+
     $fileSystem = new Filesystem();
     if ($fileSystem->exists(static::$configPath)) {
       $io = $event->getIO();
@@ -147,6 +149,27 @@ class Ddev {
 
       static::installSolr($event);
       static::installWkhtmltopdf($event);
+    }
+  }
+
+  /**
+   * Sync missing config keys from asset config to site config.
+   */
+  protected static function syncConfig() {
+    $fileSystem = new Filesystem();
+    $assetConfigPath = __DIR__ . '/../assets/config.yaml';
+
+    if (!$fileSystem->exists(static::$configPath) || !$fileSystem->exists($assetConfigPath)) {
+      return;
+    }
+
+    $siteConfig = Yaml::parseFile(static::$configPath);
+    $assetConfig = Yaml::parseFile($assetConfigPath);
+
+    $missing = array_diff_key($assetConfig, $siteConfig);
+    if (!empty($missing)) {
+      $siteConfig = array_merge($siteConfig, $missing);
+      $fileSystem->dumpFile(static::$configPath, Yaml::dump($siteConfig, 2, 2));
     }
   }
 
