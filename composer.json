@@ -20,7 +20,7 @@
               "[project-root]/.ddev/config.yaml": {
                   "mode": "replace",
                   "path": "assets/config.yaml",
-                  "overwrite": false
+                  "overwrite": true
               }
             }
         }
