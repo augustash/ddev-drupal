@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+#ddev-generated
 ## Description: Open Visual Studio Code with the current project
 ## Usage: code
 ## Example: "ddev code"

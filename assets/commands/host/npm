@@ -1,5 +1,6 @@
 #!/bin/bash
 
+#ddev-generated
 ## Description: Run npm inside the web container in the root of the project (Use --prefix for another directory)
 ## Usage: npm [flags] [args]
 ## Example: "ddev npm install" or "ddev npm install learna" or "ddev npm --prefix ./web/core/ install learna"
