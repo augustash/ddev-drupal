@@ -167,11 +167,54 @@ class Ddev {
     $siteConfig = Yaml::parseFile(static::$configPath);
     $assetConfig = Yaml::parseFile($assetConfigPath);
 
+    // Merge missing top-level keys.
     $missing = array_diff_key($assetConfig, $siteConfig);
     if (!empty($missing)) {
       $siteConfig = array_merge($siteConfig, $missing);
-      $fileSystem->dumpFile(static::$configPath, Yaml::dump($siteConfig, 2, 2));
     }
+
+    // Merge post-start exec-host hooks: asset hooks first, then any unique
+    // local hooks appended. This ensures add-on installs run before commands
+    // like ddev db, while preserving site-specific hooks like solrcollection.
+    $siteConfig = static::mergePostStartHooks($siteConfig, $assetConfig);
+
+    $fileSystem->dumpFile(static::$configPath, Yaml::dump($siteConfig, 2, 2));
+  }
+
+  /**
+   * Merge post-start hooks from asset config into site config.
+   *
+   * Asset hooks are placed first, followed by any unique site-specific hooks.
+   *
+   * @param array $siteConfig
+   *   The site configuration.
+   * @param array $assetConfig
+   *   The asset configuration.
+   *
+   * @return array
+   *   The site configuration with merged hooks.
+   */
+  protected static function mergePostStartHooks(array $siteConfig, array $assetConfig) {
+    $assetHooks = $assetConfig['hooks']['post-start'];
+    $siteHooks = $siteConfig['hooks']['post-start'];
+
+    // Collect asset exec-host values for deduplication.
+    $assetValues = [];
+    foreach ($assetHooks as $hook) {
+      $assetValues[] = $hook['exec-host'];
+    }
+
+    // Start with asset hooks, then append unique site hooks.
+    $merged = $assetHooks;
+    foreach ($siteHooks as $hook) {
+      if (isset($hook['exec-host']) && in_array($hook['exec-host'], $assetValues)) {
+        continue;
+      }
+      $merged[] = $hook;
+    }
+
+    $siteConfig['hooks']['post-start'] = $merged;
+    return $siteConfig;
   }
 
   /**
