@@ -230,7 +230,10 @@ class Ddev {
     if ($status) {
       try {
         $config = Yaml::parseFile(static::$configPath);
-        $config['hooks']['post-start'][]['exec-host'] = 'ddev solrcollection';
+        $existingHooks = array_column($config['hooks']['post-start'] ?? [], 'exec-host');
+        if (!in_array('ddev solrcollection', $existingHooks)) {
+          $config['hooks']['post-start'][]['exec-host'] = 'ddev solrcollection';
+        }
         $fileSystem->dumpFile(static::$configPath, Yaml::dump($config));
         $fileSystem->mirror(__DIR__ . '/../assets/solr', static::$ddevRoot . 'solr');
         $fileSystem->copy(__DIR__ . '/../assets/docker-compose.solr.yaml', static::$ddevRoot . 'docker-compose.solr.yaml');
