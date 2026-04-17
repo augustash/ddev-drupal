@@ -316,9 +316,31 @@ class Ddev {
     else {
       $io->write('<info>Run <comment>drush cim</comment> when ready to apply the engine change.</info>');
     }
-    $io->write('<info>Expect PDF-specific CSS to need rework — dompdf has no flexbox, limited transforms, and no JS.</info>');
+    $io->write('<info>PDF-specific CSS may need rework — dompdf has no flexbox, limited transforms, and no JS.</info>');
     $io->write('<info>Run <comment>ddev restart</comment> to rebuild the container without wkhtmltopdf.</info>');
+    static::upgradePantheonRuntime($projectRoot, $io);
     $io->write('');
+  }
+
+  /**
+   * Drop php_runtime_generation: 1 from pantheon.yml if present.
+   *
+   * wkhtmltopdf was the sole blocker keeping sites on gen 1; removing the
+   * explicit line lets Pantheon default to gen 2.
+   */
+  protected static function upgradePantheonRuntime($projectRoot, $io) {
+    $path = $projectRoot . '/pantheon.yml';
+    if (!file_exists($path)) {
+      return;
+    }
+    $content = file_get_contents($path);
+    $updated = preg_replace('/^php_runtime_generation:\s*1\s*\r?\n/m', '', $content);
+    if ($updated !== NULL && $updated !== $content) {
+      file_put_contents($path, $updated);
+      $io->write('');
+      $io->write('<info>wkhtmltopdf was the only dependency keeping this site on PHP runtime generation 1.</info>');
+      $io->write('<info>pantheon.yml has been updated to drop the explicit gen 1 pin — commit and push to upgrade the remote.</info>');
+    }
   }
 
   /**
