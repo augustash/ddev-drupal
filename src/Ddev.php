@@ -56,6 +56,7 @@ class Ddev {
 
     static::syncConfig();
     static::cleanup();
+    static::cleanupWkhtmltopdf($event);
 
     $fileSystem = new Filesystem();
     if ($fileSystem->exists(static::$configPath)) {
@@ -149,7 +150,6 @@ class Ddev {
       }
 
       static::installSolr($event);
-      static::installWkhtmltopdf($event);
     }
   }
 
@@ -266,24 +266,76 @@ class Ddev {
   }
 
   /**
-   * Install wkhtmltopdf.
+   * Remove legacy wkhtmltopdf packages.
+   *
+   * Pantheon dropped wkhtmltopdf support in PHP runtime gen 2.
    */
-  protected static function installWkhtmltopdf(Event $event) {
-    $fileSystem = new Filesystem();
+  protected static function cleanupWkhtmltopdf(Event $event) {
     $io = $event->getIO();
-    $status = $io->askConfirmation('<info>Do you need wkhtmltopdf support?</info> [<comment>no</comment>]:' . "\n > ", FALSE);
-    if ($status) {
-      try {
-        $fileSystem = new Filesystem();
-        $fileSystem->copy(__DIR__ . '/../assets/web-build/Dockerfile.ddev-wkhtmltox', static::$ddevRoot . 'web-build/Dockerfile.ddev-wkhtmltox');
-        $io->info('[Enabled] wkhtmltopdf');
-      }
-      catch (\Error $e) {
-        $io->error('<error>' . $e->getMessage() . '</error>');
+    $composer = $event->getComposer();
+    $repo = $composer->getRepositoryManager()->getLocalRepository();
+    $target = 'mikehaertl/phpwkhtmltopdf';
+
+    if (!$repo->findPackage($target, '*')) {
+      return;
+    }
+
+    $fileSystem = new Filesystem();
+    $fileSystem->remove(static::$ddevRoot . 'web-build/Dockerfile.ddev-wkhtmltox');
+
+    $projectRoot = realpath(__DIR__ . '/../../../../');
+    $cwd = getcwd();
+    chdir($projectRoot);
+    passthru('composer remove ' . escapeshellarg($target), $removeExit);
+    if ($removeExit !== 0) {
+      chdir($cwd);
+      $io->error('<error>Failed to remove ' . $target . '. Run `composer remove ' . $target . '` manually.</error>');
+      return;
+    }
+
+    passthru('composer require dompdf/dompdf', $requireExit);
+    chdir($cwd);
+    if ($requireExit !== 0) {
+      $io->error('<error>Failed to install dompdf/dompdf. Run `composer require dompdf/dompdf` manually.</error>');
+      return;
+    }
+
+    static::flipEntityPrintEngine($projectRoot, $io);
+
+    $io->write('');
+    $io->write('<info>Pantheon no longer supports wkhtmltopdf; dompdf substituted.</info>');
+    $importNow = $io->askConfirmation('<info>Import configuration changes now?</info> [<comment>yes</comment>]:' . "\n > ", TRUE);
+    if ($importNow) {
+      chdir($projectRoot);
+      passthru('drush cim -y', $cimExit);
+      chdir($cwd);
+      if ($cimExit !== 0) {
+        $io->error('<error>drush cim failed. Run `drush cim` manually to apply the engine change.</error>');
       }
     }
     else {
-      $fileSystem->remove(static::$ddevRoot . 'web-build/Dockerfile.ddev-wkhtmltox');
+      $io->write('<info>Run <comment>drush cim</comment> when ready to apply the engine change.</info>');
+    }
+    $io->write('<info>Expect PDF-specific CSS to need rework — dompdf has no flexbox, limited transforms, and no JS.</info>');
+    $io->write('<info>Run <comment>ddev restart</comment> to rebuild the container without wkhtmltopdf.</info>');
+    $io->write('');
+  }
+
+  /**
+   * Flip entity_print's exported pdf_engine from phpwkhtmltopdf to dompdf.
+   *
+   * Uses string replacement to preserve the file's existing formatting.
+   */
+  protected static function flipEntityPrintEngine($projectRoot, $io) {
+    $path = $projectRoot . '/config/entity_print.settings.yml';
+    if (!file_exists($path)) {
+      $io->error('<error>Expected ' . $path . ' but it was not found; skip flipping engine.</error>');
+      return;
+    }
+    $content = file_get_contents($path);
+    $updated = str_replace('pdf_engine: phpwkhtmltopdf', 'pdf_engine: dompdf', $content);
+    if ($updated !== $content) {
+      file_put_contents($path, $updated);
     }
   }
 
