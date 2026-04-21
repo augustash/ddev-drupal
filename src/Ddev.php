@@ -149,6 +149,18 @@ class Ddev {
         $io->error('<error>' . $e->getMessage() . '</error>');
       }
 
+      // Selenium Chrome for Drupal FunctionalJavascript / Nightwatch tests.
+      // Bundled rather than installed via `ddev add-on get` so every project
+      // gets a consistent, versioned copy alongside the rest of ddev-drupal.
+      try {
+        $fileSystem->copy(__DIR__ . '/../assets/docker-compose.selenium-chrome.yaml', static::$ddevRoot . 'docker-compose.selenium-chrome.yaml');
+        $fileSystem->copy(__DIR__ . '/../assets/config.selenium-standalone-chrome.yaml', static::$ddevRoot . 'config.selenium-standalone-chrome.yaml');
+        $io->info('<info>Selenium Chrome (FunctionalJavascript / Nightwatch) added.</info>');
+      }
+      catch (\Error $e) {
+        $io->error('<error>' . $e->getMessage() . '</error>');
+      }
+
       static::installSolr($event);
     }
   }
