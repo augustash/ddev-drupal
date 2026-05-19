@@ -12,6 +12,17 @@ There are required changes in ddev 1.24.10.
 ddev composer require --dev augustash/ddev-drupal && ddev composer ddev-setup
 ```
 
+### Zookeeper image swap (Solr add-on)
+The `zoo` service moved from the legacy Bitnami image to the official multi-arch
+`zookeeper:3.9` image (fixes the `linux/amd64` platform warning on Apple Silicon).
+The data path changed from `/bitnami/zookeeper` to `/data`, so the existing volume
+must be recreated. After updating the add-on, run:
+```bash
+ddev stop && docker volume rm "ddev-$(ddev describe -j | jq -r .raw.name)_zoo" && ddev start
+```
+The `post-start` `ddev solrcollection` hook will repopulate the configset and
+recreate the collection in the fresh ZK store.
+
 # Configuration
 
 On ddev-setup, you will be prompted for:
