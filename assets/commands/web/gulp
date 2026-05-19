@@ -1,6 +1,5 @@
 #!/bin/bash
 
-#ddev-generated
 ## Description: Run gulp inside the web container
 ## Usage: gulp [flags] [args]
 ## Example: "ddev gulp --version"
