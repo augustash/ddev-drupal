@@ -6,7 +6,3 @@ database:
   version: "10.6"
 mutagen_enabled: true
 webimage_extra_packages: [build-essential, libnotify-bin]
-hooks:
-  post-start:
-    - exec-host: ddev add-on get augustash/ddev-pantheon-db
-    - exec-host: ddev db
