@@ -49,6 +49,11 @@ class Ddev {
   /**
    * Run on post-install-cmd.
    *
+   * Thin orchestrator: each step is its own method (see syncConfig/cleanup).
+   * Inputs shared across steps (client code, docroot, Drupal/PHP version) are
+   * gathered here and threaded through; the $config array is passed through
+   * each configure* step and written once at the end.
+   *
    * @param \Composer\Script\Event $event
    *   The event.
    */
@@ -58,110 +63,219 @@ class Ddev {
     static::cleanup();
     static::cleanupWkhtmltopdf($event);
 
+    if (!(new Filesystem())->exists(static::$configPath)) {
+      return;
+    }
+
+    $io = $event->getIO();
+    $config = Yaml::parseFile(static::$configPath);
+
+    $clientCode = $io->ask('<info>Client code?</info>:' . "\n > ");
+    $docRoot = static::$docRoot = $io->ask('<info>Document root?</info>  [<comment>web</comment>]:' . "\n > ", 'web') ?: '';
+    $drupalVersion = static::selectDrupalVersion($event);
+    $phpVersion = static::selectPhpVersion($event);
+
+    $config = static::configureSite($config, $clientCode, $docRoot, $drupalVersion, $phpVersion);
+    $config = static::configurePantheon($event, $config, $clientCode, $phpVersion);
+    $config = static::configureSubdomains($event, $config, $clientCode);
+
+    static::writeConfig($event, $config);
+    static::writeSettingsLocal($event);
+    static::appendGitignore($event);
+    static::copyBrowsersync($event);
+    static::copySeleniumChrome($event);
+
+    static::installSolr($event);
+  }
+
+  /**
+   * Prompt for the Drupal version.
+   *
+   * @return string
+   *   The selected Drupal major version (e.g. "10").
+   */
+  protected static function selectDrupalVersion(Event $event) {
+    $drupalVersions = [
+      '7',
+      '8',
+      '9',
+      '10',
+      '11',
+    ];
+    $index = $event->getIO()->select('<info>Drupal version</info> [<comment>10</comment>]:', $drupalVersions, '10');
+    return $drupalVersions[$index];
+  }
+
+  /**
+   * Prompt for the PHP version.
+   *
+   * @return string
+   *   The selected PHP version (e.g. "8.1").
+   */
+  protected static function selectPhpVersion(Event $event) {
+    $phpVersions = [
+      '7.4',
+      '8.1',
+      '8.2',
+      '8.3',
+    ];
+    $index = $event->getIO()->select('<info>PHP version</info> [<comment>8.1</comment>]:', $phpVersions, '8.1');
+    return $phpVersions[$index];
+  }
+
+  /**
+   * Apply the core site settings.
+   *
+   * @return array
+   *   The updated configuration.
+   */
+  protected static function configureSite(array $config, $clientCode, $docRoot, $drupalVersion, $phpVersion) {
+    $config['name'] = $clientCode;
+    $config['docroot'] = $docRoot;
+    $config['type'] = 'drupal' . $drupalVersion;
+    $config['php_version'] = $phpVersion;
+    return $config;
+  }
+
+  /**
+   * Optionally wire up Pantheon hosting.
+   *
+   * Pantheon hosting is optional. Only wire up the Pantheon DB pull (env vars,
+   * post-start add-on/db hooks, Terminus) when the site is actually hosted
+   * there. Non-Pantheon sites skip all of it.
+   *
+   * @return array
+   *   The updated configuration.
+   */
+  protected static function configurePantheon(Event $event, array $config, $clientCode, $phpVersion) {
+    $io = $event->getIO();
+
+    if (!$io->askConfirmation('<info>Is this site hosted on Pantheon?</info> [<comment>Y/n</comment>] ', TRUE)) {
+      // Non-Pantheon: drop any stale Terminus build artifact.
+      (new Filesystem())->remove(static::$ddevRoot . 'web-build/Dockerfile.ddev-terminus');
+      return $config;
+    }
+
+    $siteName = $io->ask('<info>Pantheon site name</info> [<comment>' . 'aai' . $clientCode . '</comment>]:' . "\n > ", 'aai' . $clientCode);
+    $siteEnv = $io->ask('<info>Pantheon site environment (dev|test|live)</info> [<comment>live</comment>]:' . "\n > ", 'live');
+
+    $config['web_environment'] = [
+      'DDEV_PANTHEON_SITE=' . $siteName,
+      'DDEV_PANTHEON_ENVIRONMENT=' . $siteEnv,
+    ];
+
+    // Pull the Pantheon DB on start via the add-on. Reuse the hook merge so
+    // existing site-specific hooks (e.g. solrcollection) are preserved and
+    // de-duplicated.
+    $pantheonHooks = [
+      'hooks' => [
+        'post-start' => [
+          ['exec-host' => 'ddev add-on get augustash/ddev-pantheon-db'],
+          ['exec-host' => 'ddev db'],
+        ],
+      ],
+    ];
+    $config = static::mergePostStartHooks($config, $pantheonHooks);
+
+    static::downgradeTerminus($event, $phpVersion);
+
+    return $config;
+  }
+
+  /**
+   * Prompt for and apply additional subdomain hostnames.
+   *
+   * @return array
+   *   The updated configuration.
+   */
+  protected static function configureSubdomains(Event $event, array $config, $clientCode) {
+    $subdomains = $event->getIO()->ask('<info>Subdomains? (space delimiter)</info> [<comment>no</comment>]:' . "\n > ", FALSE);
+    if ($subdomains) {
+      $config['additional_hostnames'] = [];
+      foreach (explode(' ', $subdomains) as $subdomain) {
+        $config['additional_hostnames'][] = $subdomain . '.' . $clientCode;
+      }
+    }
+    return $config;
+  }
+
+  /**
+   * Write the assembled configuration to config.yaml.
+   */
+  protected static function writeConfig(Event $event, array $config) {
+    $io = $event->getIO();
+    try {
+      (new Filesystem())->dumpFile(static::$configPath, Yaml::dump($config, 2, 2));
+      $io->info('<info>Config.yaml updated.</info>');
+    }
+    catch (\Error $e) {
+      $io->error('<error>' . $e->getMessage() . '</error>');
+    }
+  }
+
+  /**
+   * Seed the local settings file when missing.
+   */
+  protected static function writeSettingsLocal(Event $event) {
     $fileSystem = new Filesystem();
-    if ($fileSystem->exists(static::$configPath)) {
-      $io = $event->getIO();
-      $config = Yaml::parseFile(static::$configPath);
+    $settingsLocalPath = static::getWebRootPath() . static::$settingsLocalPath;
+    if ($fileSystem->exists($settingsLocalPath)) {
+      return;
+    }
+    try {
+      $data = file_get_contents(__DIR__ . '/../assets/settings.local.php');
+      $fileSystem->dumpFile($settingsLocalPath, $data);
+    }
+    catch (\Error $e) {
+      $event->getIO()->error('<error>' . $e->getMessage() . '</error>');
+    }
+  }
 
-      $clientCode = $io->ask('<info>Client code?</info>:' . "\n > ");
-      $docRoot = static::$docRoot = $io->ask('<info>Document root?</info>  [<comment>web</comment>]:' . "\n > ", 'web') ?: '';
-      $siteName = $io->ask('<info>Pantheon site name</info> [<comment>' . 'aai' . $clientCode . '</comment>]:' . "\n > ", 'aai' . $clientCode);
-      $siteEnv = $io->ask('<info>Pantheon site environment (dev|test|live)</info> [<comment>live</comment>]:' . "\n > ", 'live');
-
-      $drupalVersions = [
-        '7',
-        '8',
-        '9',
-        '10',
-        '11',
-      ];
-      $drupalVersion = $io->select('<info>Drupal version</info> [<comment>10</comment>]:', $drupalVersions, '10');
-
-      $phpVersions = [
-        '7.4',
-        '8.1',
-        '8.2',
-        '8.3',
-      ];
-      $phpVersion = $io->select('<info>PHP version</info> [<comment>8.1</comment>]:', $phpVersions, '8.1');
-
-      static::downgradeTerminus($event, $phpVersion);
-
-      $config['name'] = $clientCode;
-      $config['docroot'] = $docRoot;
-      $config['type'] = 'drupal' . $drupalVersions[$drupalVersion];
-      $config['php_version'] = $phpVersions[$phpVersion];
-      $config['web_environment'] = [
-        'DDEV_PANTHEON_SITE=' . $siteName,
-        'DDEV_PANTHEON_ENVIRONMENT=' . $siteEnv
-      ];
-
-      // Subdomain configuration handling.
-      $subdomains = $io->ask('<info>Subdomains? (space delimiter)</info> [<comment>no</comment>]:' . "\n > ", FALSE);
-      if ($subdomains) {
-        $subdomains = explode(' ', $subdomains);
-        $config['additional_hostnames'] = [];
-
-        foreach ($subdomains as $subdomain) {
-          $config['additional_hostnames'][] = $subdomain . '.' . $clientCode;
-        }
+  /**
+   * Append the ddev ignore rules to .gitignore once.
+   */
+  protected static function appendGitignore(Event $event) {
+    $fileSystem = new Filesystem();
+    try {
+      $gitignore = $fileSystem->exists(static::$gitIgnorePath) ? file_get_contents(static::$gitIgnorePath) : '';
+      if (strpos($gitignore, '# Ignore ddev files') === FALSE) {
+        $gitignore .= "\n" . file_get_contents(__DIR__ . '/../assets/.gitignore.append');
+        $fileSystem->dumpFile(static::$gitIgnorePath, $gitignore);
       }
+    }
+    catch (\Error $e) {
+      $event->getIO()->error('<error>' . $e->getMessage() . '</error>');
+    }
+  }
 
-      // config.yaml.
-      try {
-        $fileSystem->dumpFile(static::$configPath, Yaml::dump($config, 2, 2));
-        $io->info('<info>Config.yaml updated.</info>');
-      }
-      catch (\Error $e) {
-        $io->error('<error>' . $e->getMessage() . '</error>');
-      }
+  /**
+   * Add the BrowserSync docker-compose service.
+   */
+  protected static function copyBrowsersync(Event $event) {
+    try {
+      (new Filesystem())->copy(__DIR__ . '/../assets/docker-compose.browsersync.yaml', static::$ddevRoot . 'docker-compose.browsersync.yaml');
+      $event->getIO()->info('<info>docker-compose.browsersync.yaml added.</info>');
+    }
+    catch (\Error $e) {
+      $event->getIO()->error('<error>' . $e->getMessage() . '</error>');
+    }
+  }
 
-      // settings.local.php.
-      $settingsLocalPath = static::getWebRootPath() . static::$settingsLocalPath;
-      if (!$fileSystem->exists($settingsLocalPath)) {
-        try {
-          $data = file_get_contents(__DIR__ . '/../assets/settings.local.php');
-          $fileSystem->dumpFile($settingsLocalPath, $data);
-        }
-        catch (\Error $e) {
-          $io->error('<error>' . $e->getMessage() . '</error>');
-        }
-      }
-
-      // .gitignore.
-      try {
-        $gitignore = $fileSystem->exists(static::$gitIgnorePath) ? file_get_contents(static::$gitIgnorePath) : '';
-        if (strpos($gitignore, '# Ignore ddev files') === FALSE) {
-          $gitignore .= "\n" . file_get_contents(__DIR__ . '/../assets/.gitignore.append');
-          $fileSystem->dumpFile(static::$gitIgnorePath, $gitignore);
-        }
-      }
-      catch (\Error $e) {
-        $io->error('<error>' . $e->getMessage() . '</error>');
-      }
-
-      // docker-compose.browsersync.yaml.
-      try {
-        $fileSystem->copy(__DIR__ . '/../assets/docker-compose.browsersync.yaml', static::$ddevRoot . 'docker-compose.browsersync.yaml');
-        $io->info('<info>docker-compose.browsersync.yaml added.</info>');
-      }
-      catch (\Error $e) {
-        $io->error('<error>' . $e->getMessage() . '</error>');
-      }
-
-      // Selenium Chrome for Drupal FunctionalJavascript / Nightwatch tests.
-      // Bundled rather than installed via `ddev add-on get` so every project
-      // gets a consistent, versioned copy alongside the rest of ddev-drupal.
-      try {
-        $fileSystem->copy(__DIR__ . '/../assets/docker-compose.selenium-chrome.yaml', static::$ddevRoot . 'docker-compose.selenium-chrome.yaml');
-        $fileSystem->copy(__DIR__ . '/../assets/config.selenium-standalone-chrome.yaml', static::$ddevRoot . 'config.selenium-standalone-chrome.yaml');
-        $io->info('<info>Selenium Chrome (FunctionalJavascript / Nightwatch) added.</info>');
-      }
-      catch (\Error $e) {
-        $io->error('<error>' . $e->getMessage() . '</error>');
-      }
-
-      static::installSolr($event);
+  /**
+   * Add Selenium Chrome for Drupal FunctionalJavascript / Nightwatch tests.
+   *
+   * Bundled rather than installed via `ddev add-on get` so every project gets
+   * a consistent, versioned copy alongside the rest of ddev-drupal.
+   */
+  protected static function copySeleniumChrome(Event $event) {
+    $fileSystem = new Filesystem();
+    try {
+      $fileSystem->copy(__DIR__ . '/../assets/docker-compose.selenium-chrome.yaml', static::$ddevRoot . 'docker-compose.selenium-chrome.yaml');
+      $fileSystem->copy(__DIR__ . '/../assets/config.selenium-standalone-chrome.yaml', static::$ddevRoot . 'config.selenium-standalone-chrome.yaml');
+      $event->getIO()->info('<info>Selenium Chrome (FunctionalJavascript / Nightwatch) added.</info>');
+    }
+    catch (\Error $e) {
+      $event->getIO()->error('<error>' . $e->getMessage() . '</error>');
     }
   }
 
@@ -188,7 +302,10 @@ class Ddev {
     // Merge post-start exec-host hooks: asset hooks first, then any unique
     // local hooks appended. This ensures add-on installs run before commands
     // like ddev db, while preserving site-specific hooks like solrcollection.
-    $siteConfig = static::mergePostStartHooks($siteConfig, $assetConfig);
+    // Only runs when the asset actually defines hooks.
+    if (!empty($assetConfig['hooks']['post-start'])) {
+      $siteConfig = static::mergePostStartHooks($siteConfig, $assetConfig);
+    }
 
     $fileSystem->dumpFile(static::$configPath, Yaml::dump($siteConfig, 2, 2));
   }
@@ -207,8 +324,8 @@ class Ddev {
    *   The site configuration with merged hooks.
    */
   protected static function mergePostStartHooks(array $siteConfig, array $assetConfig) {
-    $assetHooks = $assetConfig['hooks']['post-start'];
-    $siteHooks = $siteConfig['hooks']['post-start'];
+    $assetHooks = $assetConfig['hooks']['post-start'] ?? [];
+    $siteHooks = $siteConfig['hooks']['post-start'] ?? [];
 
     // Collect asset exec-host values for deduplication.
     $assetValues = [];
@@ -390,19 +507,16 @@ class Ddev {
 
   /**
    * Ddev installs its own version of Terminus.
-   * Terminus 4 requires php 8.2.
+   * Terminus 4 requires PHP 8.2+.
    *
-   * If sites php version is < 8.2, install Terminus 3.
+   * If the site's PHP version is < 8.2, install Terminus 3.
    */
   protected static function downgradeTerminus(Event $event, $phpVersion) {
     $fileSystem = new Filesystem();
     $io = $event->getIO();
 
-    // Phpversion is option selection number, not actual version.
-    // All future options will be greater than 2.
-    if ($phpVersion < 2) {
+    if (version_compare($phpVersion, '8.2', '<')) {
       try {
-        $fileSystem = new Filesystem();
         $fileSystem->copy(__DIR__ . '/../assets/web-build/Dockerfile.ddev-terminus', static::$ddevRoot . 'web-build/Dockerfile.ddev-terminus');
       }
       catch (\Error $e) {
