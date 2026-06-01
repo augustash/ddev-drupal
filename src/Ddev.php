@@ -273,6 +273,12 @@ class Ddev {
    * and the pantheon-db add-on hook is never asserted. Renaming in place lets
    * the existing detection path light up on the next `-u` run.
    *
+   * The very oldest sites instead carry a single `project=<site>.<env>` var
+   * (e.g. `project=mysite.live`) that packs both values into one dot-separated
+   * string — the original pantheon.yaml provider split it with `IFS='.'`. That
+   * one var is expanded into the two DDEV_-prefixed vars here so those sites
+   * migrate forward the same as the PANTHEON_SITE= generation.
+   *
    * @param array $config
    *   The current site configuration.
    *
@@ -282,6 +288,20 @@ class Ddev {
   protected static function migratePantheonEnv(array $config) {
     if (empty($config['web_environment'])) {
       return $config;
+    }
+    // Oldest format: a single `project=<site>.<env>` var. Split it into the two
+    // DDEV_-prefixed vars in place before the prefix renames below. Only the
+    // first such var is meaningful; a missing environment defaults to 'live',
+    // matching configurePantheon()'s default.
+    foreach ($config['web_environment'] as $i => $var) {
+      if (strpos($var, 'project=') === 0) {
+        $parts = explode('.', substr($var, strlen('project=')));
+        array_splice($config['web_environment'], $i, 1, [
+          'DDEV_PANTHEON_SITE=' . $parts[0],
+          'DDEV_PANTHEON_ENVIRONMENT=' . ($parts[1] ?? 'live'),
+        ]);
+        break;
+      }
     }
     // Legacy var name => current DDEV_-prefixed name.
     $renames = [

@@ -115,6 +115,52 @@ abstract class DdevTestCase extends TestCase {
     $this->assertSame($config, self::call('migratePantheonEnv', $config));
   }
 
+  public function testMigratePantheonEnvSplitsOldestProjectVar(): void {
+    // Oldest format: `project=<site>.<env>` packs both values into one var,
+    // dot-separated. It must split into the two DDEV_-prefixed vars, in place.
+    $config = ['web_environment' => [
+      'project=mysite.live',
+      'DRUPAL_TEST_DB_URL=mysql://db:db@db/db',
+    ]];
+
+    $result = self::call('migratePantheonEnv', $config);
+
+    $this->assertSame([
+      'DDEV_PANTHEON_SITE=mysite',
+      'DDEV_PANTHEON_ENVIRONMENT=live',
+      // Unrelated vars are left untouched, after the split-in pair.
+      'DRUPAL_TEST_DB_URL=mysql://db:db@db/db',
+    ], $result['web_environment']);
+  }
+
+  public function testMigratePantheonEnvProjectVarWithoutEnvDefaultsToLive(): void {
+    // No dot means no environment was recorded; default to 'live' to match
+    // configurePantheon()'s default rather than emitting an empty value.
+    $config = ['web_environment' => ['project=mysite']];
+
+    $result = self::call('migratePantheonEnv', $config);
+
+    $this->assertSame([
+      'DDEV_PANTHEON_SITE=mysite',
+      'DDEV_PANTHEON_ENVIRONMENT=live',
+    ], $result['web_environment']);
+  }
+
+  public function testMigratePantheonEnvProjectVarIsIdempotent(): void {
+    // After the split there is no `project=` var left, so a second pass is a
+    // no-op — the migrated config feeds straight back through unchanged.
+    $config = ['web_environment' => ['project=mysite.dev']];
+
+    $once = self::call('migratePantheonEnv', $config);
+    $twice = self::call('migratePantheonEnv', $once);
+
+    $this->assertSame([
+      'DDEV_PANTHEON_SITE=mysite',
+      'DDEV_PANTHEON_ENVIRONMENT=dev',
+    ], $once['web_environment']);
+    $this->assertSame($once, $twice);
+  }
+
   // ---------------------------------------------------------------------------
   // isPantheonSite()
   // ---------------------------------------------------------------------------
