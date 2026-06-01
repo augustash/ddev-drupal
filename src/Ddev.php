@@ -129,6 +129,11 @@ class Ddev {
       $config = static::configureSubdomains($event, $config, $clientCode);
     }
 
+    // Strip noise before writing: keys left at their ddev default and env vars
+    // already supplied by a config.*.yaml override are redundant clutter.
+    $config = static::pruneDefaultKeys($config);
+    $config = static::dedupeWebEnvironment($config);
+
     static::writeConfig($event, $config);
     static::writeSettingsLocal($event);
     static::appendGitignore($event);
@@ -516,6 +521,92 @@ class Ddev {
 
     $siteConfig['hooks']['post-start'] = $merged;
     return $siteConfig;
+  }
+
+  /**
+   * Drop top-level keys left at their ddev default.
+   *
+   * Carrying a key whose value already equals ddev's default is pure noise —
+   * removing it changes nothing ddev does but keeps config.yaml legible. Only
+   * an exact (strict) match is pruned, so an intentionally non-default value
+   * (e.g. `xdebug_enabled: true`) is preserved.
+   *
+   * The map is a deliberately small allowlist of stable toggles/ports.
+   * Version-sensitive keys (`php_version`, `database`, `type`) are omitted on
+   * purpose: ddev shifts their defaults between releases (e.g. php 8.3 → 8.4),
+   * and this code runs in the web container where ddev can't be queried, so a
+   * captured baseline would rot. Leaving them out means we never touch a pin.
+   * Validated against ddev v1.25.
+   *
+   * @param array $config
+   *   The current site configuration.
+   *
+   * @return array
+   *   The configuration with default-valued noise keys removed.
+   */
+  protected static function pruneDefaultKeys(array $config) {
+    $ddevDefaults = [
+      'webserver_type' => 'nginx-fpm',
+      'xdebug_enabled' => FALSE,
+      'additional_hostnames' => [],
+      'additional_fqdns' => [],
+      'use_dns_when_possible' => TRUE,
+      'composer_version' => '2',
+      'corepack_enable' => FALSE,
+      'xhgui_https_port' => '8142',
+      'xhgui_http_port' => '8143',
+    ];
+    foreach ($ddevDefaults as $key => $default) {
+      if (array_key_exists($key, $config) && $config[$key] === $default) {
+        unset($config[$key]);
+      }
+    }
+    return $config;
+  }
+
+  /**
+   * Drop web_environment vars already supplied by a config.*.yaml override.
+   *
+   * ddev merges every `.ddev/config.*.yaml` into the effective config, so any
+   * var the main config repeats from an override (e.g. the Selenium/test vars
+   * in config.selenium-standalone-chrome.yaml) is redundant. Removing the
+   * duplicate keeps the main config focused on what's genuinely site-specific
+   * (e.g. the Pantheon vars). A no-op when no override files exist — e.g. on
+   * WordPress, which ships no such override.
+   *
+   * @param array $config
+   *   The current site configuration.
+   *
+   * @return array
+   *   The configuration with override-provided env vars removed.
+   */
+  protected static function dedupeWebEnvironment(array $config) {
+    if (empty($config['web_environment'])) {
+      return $config;
+    }
+    // Collect every var defined by a merged override file.
+    $overrideVars = [];
+    $ddevDir = dirname(static::$configPath);
+    foreach (glob($ddevDir . '/config.*.yaml') ?: [] as $file) {
+      $override = Yaml::parseFile($file);
+      foreach ($override['web_environment'] ?? [] as $var) {
+        $overrideVars[$var] = TRUE;
+      }
+    }
+    if (!$overrideVars) {
+      return $config;
+    }
+    $config['web_environment'] = array_values(array_filter(
+      $config['web_environment'],
+      function ($var) use ($overrideVars) {
+        return !isset($overrideVars[$var]);
+      }
+    ));
+    // Drop the key entirely if nothing site-specific is left.
+    if (!$config['web_environment']) {
+      unset($config['web_environment']);
+    }
+    return $config;
   }
 
   /**
