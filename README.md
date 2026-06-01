@@ -8,11 +8,12 @@ ddev composer config --json --merge extra.drupal-scaffold.allowed-packages '["au
 
 # Updating
 
-To pull the latest `ddev-drupal` and refresh the generated scaffolding and
-hooks **without re-answering the setup prompts**, re-run setup in update mode
-(`-u`):
+The generated scaffolding and hooks refresh **automatically** on every
+`composer update`: the `post-update-cmd` hook (`Augustash\Ddev::postUpdate`)
+re-runs setup in update mode without re-prompting. So pulling the latest
+`ddev-drupal` is normally all you need:
 ```bash
-ddev composer require --dev augustash/ddev-drupal && ddev composer ddev-setup -- -u
+ddev composer update augustash/ddev-drupal
 ```
 Update mode keeps your existing `config.yaml` values (client code, docroot,
 Drupal/PHP version, subdomains) and only rebuilds what may have changed —
@@ -20,10 +21,17 @@ Selenium, BrowserSync, Solr (if already enabled), the Terminus image, and the
 Pantheon add-on hook (upgraded in place to track `develop`). Run `ddev restart`
 afterward to rebuild the containers and re-pull add-ons.
 
+To force a refresh **without** updating the package — or to run the one-time
+wkhtmltopdf→dompdf migration, which the automatic hook skips — re-run setup
+manually in update mode (`-u`):
+```bash
+ddev composer ddev-setup -- -u
+```
+
 Omit `-u` to be re-prompted for the configuration values (the original setup
 flow):
 ```bash
-ddev composer require --dev augustash/ddev-drupal && ddev composer ddev-setup
+ddev composer ddev-setup
 ```
 
 ### Zookeeper image swap (Solr add-on)
