@@ -43,4 +43,75 @@ final class DdevTest extends DdevTestCase {
     ], $result['web_environment']);
   }
 
+  // ---------------------------------------------------------------------------
+  // hashPath() + fingerprint()
+  //
+  // These back the no-op detection that keeps postUpdate from printing a
+  // restart prompt on every `composer update`. They're generic (not
+  // Drupal-specific) and belong in DdevTestCase once ddev-wordpress carries the
+  // same change; kept here for now so the shared base stays byte-identical.
+  // ---------------------------------------------------------------------------
+
+  public function testHashPathMatchesFileContents(): void {
+    $dir = $this->setConfigDir();
+    $file = $dir . '/a.txt';
+    file_put_contents($file, 'hello');
+    $this->assertSame(md5_file($file), self::call('hashPath', $file));
+  }
+
+  public function testHashPathReturnsEmptyForMissingPath(): void {
+    $this->assertSame('', self::call('hashPath', '/no/such/path-' . __LINE__));
+  }
+
+  public function testHashPathHashesDirectoryAndReactsToContentChange(): void {
+    $dir = $this->setConfigDir();
+    mkdir($dir . '/tree');
+    file_put_contents($dir . '/tree/one.txt', 'one');
+    file_put_contents($dir . '/tree/two.txt', 'two');
+
+    $hash = self::call('hashPath', $dir . '/tree');
+    $this->assertNotSame('', $hash);
+    // Stable across calls when nothing changed.
+    $this->assertSame($hash, self::call('hashPath', $dir . '/tree'));
+
+    // A content change anywhere in the tree moves the hash.
+    file_put_contents($dir . '/tree/two.txt', 'CHANGED');
+    $this->assertNotSame($hash, self::call('hashPath', $dir . '/tree'));
+  }
+
+  public function testFingerprintIsStableOnNoopRun(): void {
+    // The whole point: with no managed file touched between calls, the
+    // fingerprint must not move — that's what lets the run stay silent.
+    $dir = $this->setConfigDir();
+    $this->setManagedRoots($dir);
+    file_put_contents($dir . '/config.yaml', "name: site\ndocroot: web\n");
+
+    $this->assertSame(self::call('fingerprint'), self::call('fingerprint'));
+  }
+
+  public function testFingerprintChangesWhenManagedFileChanges(): void {
+    $dir = $this->setConfigDir();
+    $this->setManagedRoots($dir);
+    file_put_contents($dir . '/config.yaml', "name: site\ndocroot: web\n");
+
+    $before = self::call('fingerprint');
+    file_put_contents($dir . '/docker-compose.browsersync.yaml', "version: '3'\n");
+    $this->assertNotSame($before, self::call('fingerprint'));
+  }
+
+  /**
+   * Point $ddevRoot and $gitIgnorePath at the temp dir setConfigDir() created.
+   *
+   * setConfigDir() only redirects $configPath; fingerprint() also reads the
+   * ddev asset root and the project .gitignore, so those need redirecting too
+   * to keep the test off the real filesystem.
+   */
+  private function setManagedRoots(string $dir): void {
+    foreach (['ddevRoot' => $dir . '/', 'gitIgnorePath' => $dir . '/.gitignore'] as $prop => $value) {
+      $ref = new \ReflectionProperty(\Augustash\Ddev::class, $prop);
+      $ref->setAccessible(TRUE);
+      $ref->setValue(NULL, $value);
+    }
+  }
+
 }

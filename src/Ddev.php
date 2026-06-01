@@ -90,6 +90,12 @@ class Ddev {
    *   When TRUE, run the one-time wkhtmltopdf→dompdf migration.
    */
   protected static function run(Event $event, $update, $runWkhtmltopdf) {
+    // postUpdate fires this on every `composer update`, so most runs are no-ops
+    // that rewrite the scaffolding byte-for-byte. Fingerprint the managed files
+    // up front (update mode only) so the restart prompt at the end fires only
+    // when something that actually lands in the containers changed.
+    $before = $update ? static::fingerprint() : NULL;
+
     static::syncConfig();
     static::cleanup();
     if ($runWkhtmltopdf) {
@@ -142,10 +148,11 @@ class Ddev {
 
     static::installSolr($event, $update);
 
-    if ($update) {
-      // The add-on pull and container rebuilds happen on the host at start,
-      // which this in-container script can't trigger. Prompt a restart so the
-      // post-start hooks (e.g. ddev add-on get) re-run.
+    if ($update && static::fingerprint() !== $before) {
+      // Something changed. The add-on pull and container rebuilds happen on the
+      // host at start, which this in-container script can't trigger, so prompt a
+      // restart to re-run the post-start hooks (e.g. ddev add-on get). When the
+      // refresh was a no-op (fingerprint unchanged) we stay silent.
       $io->write('');
       $io->write('<info>Scaffolding refreshed.</info> Run <comment>ddev restart</comment> to rebuild the containers and re-pull add-ons (e.g. ddev-pantheon-db).');
       $io->write('');
@@ -807,6 +814,85 @@ class Ddev {
       $root .= $docroot . '/';
     }
     return $root;
+  }
+
+  /**
+   * Hash the contents of every file the scaffolding run manages.
+   *
+   * Taken before and after run() in update mode to tell a real refresh from a
+   * no-op: postUpdate fires on every `composer update`, and prompting for a
+   * restart when nothing changed is just misleading noise. Hashing file
+   * *contents* (not mtimes) means the unconditional copies/dumps the run
+   * performs don't register as changes when the bytes are identical.
+   *
+   * The docroot is read from config.yaml rather than static::$docRoot, because
+   * the "before" snapshot is taken before update mode populates that property.
+   *
+   * @return string
+   *   A content hash of the managed file set, stable across no-op runs.
+   */
+  protected static function fingerprint() {
+    $docRoot = static::$docRoot;
+    if ($docRoot === NULL && is_file(static::$configPath)) {
+      $docRoot = Yaml::parseFile(static::$configPath)['docroot'] ?? 'web';
+    }
+    $webRoot = __DIR__ . '/../../../../' . ($docRoot ? $docRoot . '/' : '');
+
+    $paths = [
+      static::$configPath,
+      static::$gitIgnorePath,
+      $webRoot . static::$settingsLocalPath,
+      static::$ddevRoot . 'docker-compose.browsersync.yaml',
+      static::$ddevRoot . 'docker-compose.selenium-chrome.yaml',
+      static::$ddevRoot . 'config.selenium-standalone-chrome.yaml',
+      static::$ddevRoot . 'docker-compose.solr.yaml',
+      static::$ddevRoot . 'web-build/Dockerfile.ddev-terminus',
+      static::$ddevRoot . 'commands/host/db',
+      // Solr ships a directory of assets, hashed recursively below.
+      static::$ddevRoot . 'solr',
+    ];
+
+    $parts = [];
+    foreach ($paths as $path) {
+      $parts[] = $path . ':' . static::hashPath($path);
+    }
+    return md5(implode('|', $parts));
+  }
+
+  /**
+   * Content hash of a file, or of an entire directory tree, or '' if absent.
+   *
+   * Directory entries are sorted before hashing so the result is independent
+   * of filesystem iteration order.
+   *
+   * @param string $path
+   *   A file or directory path.
+   *
+   * @return string
+   *   A stable hash of the path's contents, or '' when it does not exist.
+   */
+  protected static function hashPath($path) {
+    if (is_file($path)) {
+      return md5_file($path);
+    }
+    if (!is_dir($path)) {
+      return '';
+    }
+    $hashes = [];
+    $iterator = new \RecursiveIteratorIterator(
+      new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS)
+    );
+    foreach ($iterator as $file) {
+      if ($file->isFile()) {
+        $hashes[$file->getPathname()] = md5_file($file->getPathname());
+      }
+    }
+    ksort($hashes);
+    $parts = [];
+    foreach ($hashes as $file => $hash) {
+      $parts[] = $file . ':' . $hash;
+    }
+    return md5(implode('|', $parts));
   }
 
 }
