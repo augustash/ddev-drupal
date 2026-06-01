@@ -49,10 +49,13 @@ recreate the collection in the fresh ZK store.
 
 On ddev-setup, you will be prompted for:
   - Client code
-  - Pantheon site name
-  - Pantheon site environment
+  - Document root (defaults to `web`)
   - Drupal version
   - PHP version
+  - Is this site hosted on Pantheon? — if yes:
+    - Pantheon site name
+    - Pantheon site environment
+  - Subdomains (optional)
   - Solr support
 
 These are used to set config.yaml ddev configuration.
