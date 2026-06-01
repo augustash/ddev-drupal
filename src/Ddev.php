@@ -109,6 +109,9 @@ class Ddev {
       // config so the generated scaffolding and hooks can be refreshed in
       // place — e.g. an existing Pantheon site has its add-on hook upgraded.
       static::$docRoot = $config['docroot'] ?? 'web';
+      // Rename legacy Pantheon env vars before detection so sites configured
+      // prior to the DDEV_ prefix switch are recognised and refreshed.
+      $config = static::migratePantheonEnv($config);
       if (static::isPantheonSite($config)) {
         $config = static::applyPantheonHooks($config);
         static::downgradeTerminus($event, $config['php_version'] ?? '8.1');
@@ -246,6 +249,45 @@ class Ddev {
 
     static::downgradeTerminus($event, $phpVersion);
 
+    return $config;
+  }
+
+  /**
+   * Rename legacy Pantheon env vars to their DDEV_-prefixed equivalents.
+   *
+   * Sites configured before the prefix switch carry PANTHEON_SITE= and
+   * WORKING_ENVIRONMENT= in web_environment. Update mode skips the prompts that
+   * would rewrite these, so without this step isPantheonSite() never matches
+   * and the pantheon-db add-on hook is never asserted. Renaming in place lets
+   * the existing detection path light up on the next `-u` run.
+   *
+   * @param array $config
+   *   The current site configuration.
+   *
+   * @return array
+   *   The configuration with any legacy Pantheon env vars renamed.
+   */
+  protected static function migratePantheonEnv(array $config) {
+    if (empty($config['web_environment'])) {
+      return $config;
+    }
+    // Legacy var name => current DDEV_-prefixed name.
+    $renames = [
+      'PANTHEON_SITE=' => 'DDEV_PANTHEON_SITE=',
+      'WORKING_ENVIRONMENT=' => 'DDEV_PANTHEON_ENVIRONMENT=',
+    ];
+    foreach ($config['web_environment'] as &$var) {
+      foreach ($renames as $legacy => $current) {
+        // Match the legacy prefix only, leaving the value intact. The guard
+        // skips vars already migrated (DDEV_PANTHEON_SITE= contains the legacy
+        // PANTHEON_SITE= substring but not as a prefix).
+        if (strpos($var, $legacy) === 0) {
+          $var = $current . substr($var, strlen($legacy));
+          break;
+        }
+      }
+    }
+    unset($var);
     return $config;
   }
 
