@@ -47,21 +47,54 @@ class Ddev {
   private static $docRoot;
 
   /**
-   * Run on post-install-cmd.
+   * Entry point for the `ddev-setup` composer script.
    *
-   * Thin orchestrator: each step is its own method (see syncConfig/cleanup).
-   * Inputs shared across steps (client code, docroot, Drupal/PHP version) are
-   * gathered here and threaded through; the $config array is passed through
-   * each configure* step and written once at the end.
+   * Honors an optional update flag (`-u`) to refresh in place without prompts;
+   * see run() for the orchestration.
    *
    * @param \Composer\Script\Event $event
    *   The event.
    */
   public static function postPackageInstall(Event $event) {
+    static::run($event, static::isUpdateMode($event), TRUE);
+  }
 
+  /**
+   * Run on post-update-cmd.
+   *
+   * Auto-fired on `composer update`. Always runs in update mode (no prompts)
+   * and skips the wkhtmltopdf migration, which performs its own composer
+   * operations and must not run inside a composer update.
+   *
+   * @param \Composer\Script\Event $event
+   *   The event.
+   */
+  public static function postUpdate(Event $event) {
+    static::run($event, TRUE, FALSE);
+  }
+
+  /**
+   * Shared setup/refresh routine.
+   *
+   * Thin orchestrator: each step is its own method (see syncConfig/cleanup).
+   * On a fresh run the inputs (client code, docroot, Drupal/PHP version) are
+   * gathered via prompts and threaded through the configure* steps; in update
+   * mode they are inferred from the existing config so nothing is re-prompted.
+   * The $config array is written once at the end.
+   *
+   * @param \Composer\Script\Event $event
+   *   The event.
+   * @param bool $update
+   *   When TRUE, skip prompts and refresh in place from the existing config.
+   * @param bool $runWkhtmltopdf
+   *   When TRUE, run the one-time wkhtmltopdf→dompdf migration.
+   */
+  protected static function run(Event $event, $update, $runWkhtmltopdf) {
     static::syncConfig();
     static::cleanup();
-    static::cleanupWkhtmltopdf($event);
+    if ($runWkhtmltopdf) {
+      static::cleanupWkhtmltopdf($event);
+    }
 
     if (!(new Filesystem())->exists(static::$configPath)) {
       return;
@@ -70,14 +103,28 @@ class Ddev {
     $io = $event->getIO();
     $config = Yaml::parseFile(static::$configPath);
 
-    $clientCode = $io->ask('<info>Client code?</info>:' . "\n > ");
-    $docRoot = static::$docRoot = $io->ask('<info>Document root?</info>  [<comment>web</comment>]:' . "\n > ", 'web') ?: '';
-    $drupalVersion = static::selectDrupalVersion($event);
-    $phpVersion = static::selectPhpVersion($event);
+    if ($update) {
+      // Update mode (`ddev composer ddev-setup -- -u`): keep all configured
+      // values and skip the prompts. Infer prior choices from the existing
+      // config so the generated scaffolding and hooks can be refreshed in
+      // place — e.g. an existing Pantheon site has its add-on hook upgraded.
+      static::$docRoot = $config['docroot'] ?? 'web';
+      if (static::isPantheonSite($config)) {
+        $config = static::applyPantheonHooks($config);
+        static::downgradeTerminus($event, $config['php_version'] ?? '8.1');
+      }
+      $io->info('<info>Update mode: configuration left untouched; rebuilding scaffolding.</info>');
+    }
+    else {
+      $clientCode = $io->ask('<info>Client code?</info>:' . "\n > ");
+      $docRoot = static::$docRoot = $io->ask('<info>Document root?</info>  [<comment>web</comment>]:' . "\n > ", 'web') ?: '';
+      $drupalVersion = static::selectDrupalVersion($event);
+      $phpVersion = static::selectPhpVersion($event);
 
-    $config = static::configureSite($config, $clientCode, $docRoot, $drupalVersion, $phpVersion);
-    $config = static::configurePantheon($event, $config, $clientCode, $phpVersion);
-    $config = static::configureSubdomains($event, $config, $clientCode);
+      $config = static::configureSite($config, $clientCode, $docRoot, $drupalVersion, $phpVersion);
+      $config = static::configurePantheon($event, $config, $clientCode, $phpVersion);
+      $config = static::configureSubdomains($event, $config, $clientCode);
+    }
 
     static::writeConfig($event, $config);
     static::writeSettingsLocal($event);
@@ -85,7 +132,38 @@ class Ddev {
     static::copyBrowsersync($event);
     static::copySeleniumChrome($event);
 
-    static::installSolr($event);
+    static::installSolr($event, $update);
+
+    if ($update) {
+      // The add-on pull and container rebuilds happen on the host at start,
+      // which this in-container script can't trigger. Prompt a restart so the
+      // post-start hooks (e.g. ddev add-on get) re-run.
+      $io->write('');
+      $io->write('<info>Scaffolding refreshed.</info> Run <comment>ddev restart</comment> to rebuild the containers and re-pull add-ons (e.g. ddev-pantheon-db).');
+      $io->write('');
+    }
+  }
+
+  /**
+   * Determine whether ddev-setup was invoked in update mode.
+   *
+   * Update mode (`ddev composer ddev-setup -- -u`) refreshes the generated
+   * scaffolding and hooks without re-prompting for, or rewriting, the
+   * project's configuration values.
+   *
+   * @param \Composer\Script\Event $event
+   *   The event.
+   *
+   * @return bool
+   *   TRUE when an update flag (-u, --update, or update) was passed.
+   */
+  protected static function isUpdateMode(Event $event) {
+    foreach ($event->getArguments() as $arg) {
+      if (in_array($arg, ['-u', '--update', 'update'], TRUE)) {
+        return TRUE;
+      }
+    }
+    return FALSE;
   }
 
   /**
@@ -164,22 +242,74 @@ class Ddev {
       'DDEV_PANTHEON_ENVIRONMENT=' . $siteEnv,
     ];
 
-    // Pull the Pantheon DB on start via the add-on. Reuse the hook merge so
-    // existing site-specific hooks (e.g. solrcollection) are preserved and
-    // de-duplicated.
-    $pantheonHooks = [
-      'hooks' => [
-        'post-start' => [
-          ['exec-host' => 'ddev add-on get augustash/ddev-pantheon-db'],
-          ['exec-host' => 'ddev db'],
-        ],
-      ],
-    ];
-    $config = static::mergePostStartHooks($config, $pantheonHooks);
+    $config = static::applyPantheonHooks($config);
 
     static::downgradeTerminus($event, $phpVersion);
 
     return $config;
+  }
+
+  /**
+   * Detect whether the existing config describes a Pantheon-hosted site.
+   *
+   * Used by update mode, where the "Is this site hosted on Pantheon?" prompt is
+   * skipped: the answer is inferred from the Pantheon env var or an existing
+   * add-on hook so the hook can be refreshed without re-prompting.
+   *
+   * @param array $config
+   *   The current site configuration.
+   *
+   * @return bool
+   *   TRUE when the site is configured for Pantheon.
+   */
+  protected static function isPantheonSite(array $config) {
+    foreach ($config['web_environment'] ?? [] as $var) {
+      if (strpos($var, 'DDEV_PANTHEON_SITE=') === 0) {
+        return TRUE;
+      }
+    }
+    foreach ($config['hooks']['post-start'] ?? [] as $hook) {
+      if (isset($hook['exec-host']) && strpos($hook['exec-host'], 'ddev add-on get augustash/ddev-pantheon-db') === 0) {
+        return TRUE;
+      }
+    }
+    return FALSE;
+  }
+
+  /**
+   * Assert the Pantheon DB post-start hooks, upgrading any prior version.
+   *
+   * Pulls the Pantheon DB on start via the add-on (tracking the develop branch
+   * so it self-updates). Any pre-existing pantheon-db add-on hook is stripped
+   * first so the hook is upgraded in place rather than duplicated; other
+   * site-specific hooks (e.g. solrcollection) are preserved and de-duplicated.
+   *
+   * @param array $config
+   *   The current site configuration.
+   *
+   * @return array
+   *   The configuration with the Pantheon hooks asserted.
+   */
+  protected static function applyPantheonHooks(array $config) {
+    if (!empty($config['hooks']['post-start'])) {
+      $config['hooks']['post-start'] = array_values(array_filter(
+        $config['hooks']['post-start'],
+        function ($hook) {
+          return !isset($hook['exec-host'])
+            || strpos($hook['exec-host'], 'ddev add-on get augustash/ddev-pantheon-db') !== 0;
+        }
+      ));
+    }
+
+    $pantheonHooks = [
+      'hooks' => [
+        'post-start' => [
+          ['exec-host' => 'ddev add-on get augustash/ddev-pantheon-db --version develop'],
+          ['exec-host' => 'ddev db'],
+        ],
+      ],
+    ];
+    return static::mergePostStartHooks($config, $pantheonHooks);
   }
 
   /**
@@ -352,10 +482,17 @@ class Ddev {
    * @param \Composer\Script\Event $event
    *   The event.
    */
-  protected static function installSolr(Event $event) {
+  protected static function installSolr(Event $event, $update = FALSE) {
     $fileSystem = new Filesystem();
     $io = $event->getIO();
-    $status = $io->askConfirmation('<info>Do you need Solr support?</info> [<comment>no</comment>]:' . "\n > ", FALSE);
+    if ($update) {
+      // Don't prompt during an update; preserve the current Solr state and
+      // only rebuild the assets when it is already enabled.
+      $status = $fileSystem->exists(static::$ddevRoot . 'docker-compose.solr.yaml');
+    }
+    else {
+      $status = $io->askConfirmation('<info>Do you need Solr support?</info> [<comment>no</comment>]:' . "\n > ", FALSE);
+    }
     if ($status) {
       try {
         $config = Yaml::parseFile(static::$configPath);

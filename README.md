@@ -3,11 +3,25 @@
 ### Single line
 
 ```bash
-ddev composer config --json --merge extra.drupal-scaffold.allowed-packages '["augustash/ddev-drupal"]' && ddev composer config scripts.ddev-setup "Augustash\\Ddev::postPackageInstall" && ddev composer require --dev augustash/ddev-drupal && ddev composer ddev-setup
+ddev composer config --json --merge extra.drupal-scaffold.allowed-packages '["augustash/ddev-drupal"]' && ddev composer config scripts.ddev-setup "Augustash\\Ddev::postPackageInstall" && ddev composer config --json --merge scripts.post-update-cmd '["Augustash\\Ddev::postUpdate"]' && ddev composer require --dev augustash/ddev-drupal && ddev composer ddev-setup
 ```
 
 # Updating
-There are required changes in ddev 1.24.10.
+
+To pull the latest `ddev-drupal` and refresh the generated scaffolding and
+hooks **without re-answering the setup prompts**, re-run setup in update mode
+(`-u`):
+```bash
+ddev composer require --dev augustash/ddev-drupal && ddev composer ddev-setup -- -u
+```
+Update mode keeps your existing `config.yaml` values (client code, docroot,
+Drupal/PHP version, subdomains) and only rebuilds what may have changed —
+Selenium, BrowserSync, Solr (if already enabled), the Terminus image, and the
+Pantheon add-on hook (upgraded in place to track `develop`). Run `ddev restart`
+afterward to rebuild the containers and re-pull add-ons.
+
+Omit `-u` to be re-prompted for the configuration values (the original setup
+flow):
 ```bash
 ddev composer require --dev augustash/ddev-drupal && ddev composer ddev-setup
 ```
