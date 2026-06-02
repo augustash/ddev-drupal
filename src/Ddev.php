@@ -147,6 +147,7 @@ class Ddev {
     static::copySeleniumChrome($event);
 
     static::installSolr($event, $update);
+    static::installRedis($event, $update);
 
     if ($update && static::fingerprint() !== $before) {
       // Something changed. The add-on pull and container rebuilds happen on the
@@ -692,6 +693,76 @@ class Ddev {
   }
 
   /**
+   * Optionally enable Redis for prod-parity local caching.
+   *
+   * Modeled on installSolr(). Redis is the production cache backend; enabling it
+   * locally lets cache behavior (compression threshold, lock/checksum services,
+   * contention under load) match live — important for representative profiling
+   * and load testing.
+   *
+   * Follows DDEV's own convention (and the existing Solr/Selenium pattern): the
+   * service is a bundled, committed docker-compose.redis.yaml + redis/redis.conf
+   * copied from assets — not a re-fetching `ddev add-on get` post-start hook,
+   * which would re-run on every start and re-assert its own settings management.
+   * The Drupal-side connection lives in settings.local.php (appended from
+   * assets) and mirrors live exactly (compress_length, prefix, ttl offset,
+   * invalidate-as-delete, lock/flood/checksum services, bootstrap container).
+   *
+   * On a "no" the service files are removed (Solr-style); the settings.local.php
+   * block, being a local override, is left in place — a no-op once the service
+   * is gone, and harmless to keep.
+   *
+   * @param \Composer\Script\Event $event
+   *   The event.
+   * @param bool $update
+   *   When TRUE, skip the prompt and preserve the current Redis state.
+   */
+  protected static function installRedis(Event $event, $update = FALSE) {
+    $fileSystem = new Filesystem();
+    $io = $event->getIO();
+    $composePath = static::$ddevRoot . 'docker-compose.redis.yaml';
+    $settingsLocalPath = static::getWebRootPath() . static::$settingsLocalPath;
+
+    if ($update) {
+      // Don't prompt during an update; preserve the current Redis state and
+      // only rebuild the assets when it is already enabled.
+      $status = $fileSystem->exists($composePath);
+    }
+    else {
+      $status = $io->askConfirmation('<info>Do you need Redis support (prod-parity local caching)?</info> [<comment>no</comment>]:' . "\n > ", FALSE);
+    }
+
+    if (!$status) {
+      $fileSystem->remove($composePath);
+      $fileSystem->remove(static::$ddevRoot . 'redis');
+      return;
+    }
+
+    try {
+      $fileSystem->copy(__DIR__ . '/../assets/docker-compose.redis.yaml', $composePath);
+      $fileSystem->mirror(__DIR__ . '/../assets/redis', static::$ddevRoot . 'redis');
+      $io->info('[Enabled] Redis');
+    }
+    catch (\Error $e) {
+      $io->error('<error>' . $e->getMessage() . '</error>');
+    }
+
+    // Append the Redis settings to settings.local.php (once).
+    if ($fileSystem->exists($settingsLocalPath)) {
+      try {
+        $data = file_get_contents($settingsLocalPath);
+        if (strpos($data, 'Redis local configuration overrides.') === FALSE) {
+          $data .= "\n" . file_get_contents(__DIR__ . '/../assets/settings.local.redis.append');
+          $fileSystem->dumpFile($settingsLocalPath, $data);
+        }
+      }
+      catch (\Error $e) {
+        $io->error('<error>' . $e->getMessage() . '</error>');
+      }
+    }
+  }
+
+  /**
    * Remove legacy wkhtmltopdf packages.
    *
    * Pantheon dropped wkhtmltopdf support in PHP runtime gen 2.
@@ -870,6 +941,9 @@ class Ddev {
       static::$ddevRoot . 'commands/host/db',
       // Solr ships a directory of assets, hashed recursively below.
       static::$ddevRoot . 'solr',
+      // Redis ships a compose file + a config dir (hashed recursively).
+      static::$ddevRoot . 'docker-compose.redis.yaml',
+      static::$ddevRoot . 'redis',
     ];
 
     $parts = [];

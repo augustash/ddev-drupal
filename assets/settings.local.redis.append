@@ -1,0 +1,62 @@
+
+/**
+ * Redis local configuration overrides.
+ *
+ * Mirrors the production Redis settings (see settings.php's Pantheon block) so
+ * local DDEV exercises the same cache backend, prefixing, compression
+ * threshold, lock/flood/checksum services, and bootstrap container as live —
+ * only the connection differs (the ddev-redis add-on exposes an unauthenticated
+ * service at redis:6379). Keep the non-connection values in sync with live so
+ * cache behavior (and load-test results) are representative.
+ *
+ * Requires: `ddev add-on get ddev/ddev-redis` and the drupal/redis module.
+ */
+if (extension_loaded('redis') && !\Drupal\Core\Installer\InstallerKernel::installationAttempted()) {
+  $settings['redis.connection']['interface'] = 'PhpRedis';
+  $settings['redis.connection']['host']      = 'redis';
+  $settings['redis.connection']['port']      = 6379;
+
+  // Use Redis as the default backend for any cache bin not otherwise specified.
+  $settings['cache']['default'] = 'cache.backend.redis';
+  $settings['cache_prefix']['default'] = 'ddev-redis';
+
+  // Match live: only compress entries larger than 4KB (the redis module default
+  // of 100 bytes gzips nearly everything, taxing every read).
+  $settings['redis_compress_length'] = 4096;
+  $settings['redis_ttl_offset'] = 3600;
+  $settings['redis_invalidate_all_as_delete'] = TRUE;
+
+  // Use Redis for the lock/flood systems and cache tag checksum.
+  $settings['container_yamls'][] = 'modules/contrib/redis/example.services.yml';
+  // Allow the services to work before the Redis module itself is enabled.
+  $settings['container_yamls'][] = 'modules/contrib/redis/redis.services.yml';
+
+  // Required for the bootstrap container cache bin below.
+  $class_loader->addPsr4('Drupal\\redis\\', 'modules/contrib/redis/src');
+
+  // Force the container cache to use Redis rather than SQL.
+  $settings['bootstrap_container_definition'] = [
+    'parameters' => [],
+    'services' => [
+      'redis.factory' => [
+        'class' => 'Drupal\redis\ClientFactory',
+      ],
+      'cache.backend.redis' => [
+        'class' => 'Drupal\redis\Cache\CacheBackendFactory',
+        'arguments' => ['@redis.factory', '@cache_tags_provider.container', '@serialization.phpserialize'],
+      ],
+      'cache.container' => [
+        'class' => '\Drupal\redis\Cache\PhpRedis',
+        'factory' => ['@cache.backend.redis', 'get'],
+        'arguments' => ['container'],
+      ],
+      'cache_tags_provider.container' => [
+        'class' => 'Drupal\redis\Cache\RedisCacheTagsChecksum',
+        'arguments' => ['@redis.factory'],
+      ],
+      'serialization.phpserialize' => [
+        'class' => 'Drupal\Component\Serialization\PhpSerialize',
+      ],
+    ],
+  ];
+}
