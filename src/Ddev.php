@@ -379,7 +379,12 @@ class Ddev {
     $pantheonHooks = [
       'hooks' => [
         'post-start' => [
-          ['exec-host' => 'ddev add-on get augustash/ddev-pantheon-db --version develop'],
+          // Redirect output: the add-on re-fetches on every start, so its
+          // ddev-core "Use ddev restart to enable" notice and the add-on's own
+          // install message would otherwise print on every `ddev start`. The
+          // dedup/upgrade matching below keys on the command prefix, so the
+          // trailing redirect does not affect detection.
+          ['exec-host' => 'ddev add-on get augustash/ddev-pantheon-db --version develop >/dev/null 2>&1'],
           ['exec-host' => 'ddev db'],
         ],
       ],

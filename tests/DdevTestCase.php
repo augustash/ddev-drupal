@@ -241,7 +241,7 @@ abstract class DdevTestCase extends TestCase {
     $result = self::call('applyPantheonHooks', []);
 
     $this->assertSame([
-      ['exec-host' => 'ddev add-on get augustash/ddev-pantheon-db --version develop'],
+      ['exec-host' => 'ddev add-on get augustash/ddev-pantheon-db --version develop >/dev/null 2>&1'],
       ['exec-host' => 'ddev db'],
     ], $result['hooks']['post-start']);
   }
@@ -258,7 +258,7 @@ abstract class DdevTestCase extends TestCase {
     $result = self::call('applyPantheonHooks', $config);
 
     $this->assertSame([
-      ['exec-host' => 'ddev add-on get augustash/ddev-pantheon-db --version develop'],
+      ['exec-host' => 'ddev add-on get augustash/ddev-pantheon-db --version develop >/dev/null 2>&1'],
       ['exec-host' => 'ddev db'],
     ], $result['hooks']['post-start']);
   }
@@ -273,7 +273,7 @@ abstract class DdevTestCase extends TestCase {
     $result = self::call('applyPantheonHooks', $config);
 
     $this->assertSame([
-      ['exec-host' => 'ddev add-on get augustash/ddev-pantheon-db --version develop'],
+      ['exec-host' => 'ddev add-on get augustash/ddev-pantheon-db --version develop >/dev/null 2>&1'],
       ['exec-host' => 'ddev db'],
       ['exec-host' => 'ddev solrcollection'],
     ], $result['hooks']['post-start']);
