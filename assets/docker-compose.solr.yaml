@@ -17,6 +17,14 @@
 #      - create a search server using the Solr Cloud Connector with Basic Auth using username "solr" and password
 #        "SolrRocks".
 #      - press the "Upload Configset" button.
+#
+# Startup ordering is enforced with healthchecks + `condition: service_healthy`
+# rather than the bare `depends_on` list form. Compose's list form only waits for
+# a container to *start*, not for the service inside to be *ready*: a Solr node
+# would boot before ZooKeeper was accepting connections, hit its 30s ZK connect
+# timeout, and silently fail to register as a live cloud node. That left fewer
+# live nodes than shards and broke collection creation (numShards > live nodes).
+# The chain below is zoo (ruok) -> solr1 -> solr2/solr3, each gated on real health.
 
 services:
   solr1:
@@ -38,7 +46,15 @@ services:
       VIRTUAL_HOST: $DDEV_HOSTNAME
       HTTP_EXPOSE: 8983:8983
     depends_on:
-      - zoo
+      zoo:
+        condition: service_healthy
+    healthcheck:
+      # Healthy only once Solr is up AND connected to ZooKeeper (live cloud node).
+      test: ["CMD-SHELL", "curl -sf -u solr:SolrRocks http://localhost:8983/api/cluster/nodes || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 15s
     volumes:
       - .:/mnt/ddev_config
       - solr1:/var/solr
@@ -62,7 +78,14 @@ services:
       VIRTUAL_HOST: $DDEV_HOSTNAME
       HTTP_EXPOSE: 8984:8984
     depends_on:
-      - solr1
+      solr1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf -u solr:SolrRocks http://localhost:8984/api/cluster/nodes || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 15s
     volumes:
       - .:/mnt/ddev_config
       - solr2:/var/solr
@@ -85,7 +108,14 @@ services:
       VIRTUAL_HOST: $DDEV_HOSTNAME
       HTTP_EXPOSE: 8985:8985
     depends_on:
-      - solr1
+      solr1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf -u solr:SolrRocks http://localhost:8985/api/cluster/nodes || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 15s
     volumes:
       - .:/mnt/ddev_config
       - solr3:/var/solr
@@ -107,6 +137,13 @@ services:
       # Official image requires the ;clientPort suffix per server entry.
       ZOO_SERVERS: server.1=ddev-${DDEV_SITENAME}-zoo:2888:3888;2181
       ZOO_4LW_COMMANDS_WHITELIST: mntr,conf,ruok
+    healthcheck:
+      # Healthy only once ZooKeeper answers the 'ruok' four-letter word with 'imok'.
+      test: ["CMD-SHELL", "echo ruok | nc -w 2 localhost 2181 | grep -q imok"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
     volumes:
       - .:/mnt/ddev_config
       - zoo:/data
