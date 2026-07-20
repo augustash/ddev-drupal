@@ -44,6 +44,57 @@ final class DdevTest extends DdevTestCase {
   }
 
   // ---------------------------------------------------------------------------
+  // copyAsset() + mirrorAsset()
+  //
+  // Package-owned scaffolding must refresh on every `-u`. Symfony's
+  // Filesystem::copy()/mirror() are mtime-gated by default and silently skip
+  // when the target is not older than the source — and composer-installed
+  // assets routinely carry older mtimes than the already-deployed .ddev files,
+  // so the refresh was no-opping (the reported symptom: a bumped redis.conf
+  // never landing). These guard the force-overwrite. Generic (not
+  // Drupal-specific); belong in DdevTestCase once ddev-wordpress carries the
+  // same helpers, kept here for now so the shared base stays byte-identical.
+  // ---------------------------------------------------------------------------
+
+  public function testCopyAssetOverwritesTargetNewerThanSource(): void {
+    $dir = $this->setConfigDir();
+    $source = $dir . '/source.conf';
+    $target = $dir . '/target.conf';
+    file_put_contents($source, "latest\n");
+    file_put_contents($target, "stale\n");
+    // Reproduce the skip condition: an existing target newer than the asset.
+    touch($source, time() - 100);
+    touch($target, time());
+
+    self::call('copyAsset', $source, $target);
+
+    $this->assertSame("latest\n", file_get_contents($target),
+      'copyAsset must overwrite a target that is newer than the source.');
+  }
+
+  public function testMirrorAssetOverwritesDirectoryFileNewerThanSource(): void {
+    $dir = $this->setConfigDir();
+    $source = $dir . '/asset-dir';
+    $target = $dir . '/live-dir';
+    mkdir($source);
+    mkdir($target);
+    file_put_contents($source . '/f.conf', "latest\n");
+    file_put_contents($target . '/f.conf', "stale\n");
+    touch($source . '/f.conf', time() - 100);
+    touch($target . '/f.conf', time());
+
+    self::call('mirrorAsset', $source, $target);
+
+    // Capture then clean up the nested dirs before asserting, so a failure
+    // still leaves no temp cruft (tearDown only sweeps top-level files).
+    $content = file_get_contents($target . '/f.conf');
+    (new \Symfony\Component\Filesystem\Filesystem())->remove([$source, $target]);
+
+    $this->assertSame("latest\n", $content,
+      'mirrorAsset must overwrite a directory file newer than its source.');
+  }
+
+  // ---------------------------------------------------------------------------
   // hashPath() + fingerprint()
   //
   // These back the no-op detection that keeps postUpdate from printing a

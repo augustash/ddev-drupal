@@ -459,11 +459,37 @@ class Ddev {
   }
 
   /**
+   * Copy a package asset into the project, always overwriting the target.
+   *
+   * Symfony's Filesystem::copy() is mtime-gated: with the default
+   * $overwriteNewerFiles = FALSE it copies only when filemtime(source) >
+   * filemtime(target), so an existing target that is not older than the asset is
+   * silently skipped. Composer-installed assets carry install-time mtimes, so
+   * against an already-deployed .ddev file a package update never lands. These
+   * files are package-owned scaffolding, so force the overwrite — `-u` must drop
+   * the latest copy every time, regardless of mtime.
+   */
+  protected static function copyAsset($source, $target) {
+    (new Filesystem())->copy($source, $target, TRUE);
+  }
+
+  /**
+   * Mirror a package asset directory into the project, always overwriting.
+   *
+   * Same mtime-gating as copyAsset(): mirror() delegates to copy() with the
+   * 'override' option defaulting FALSE. Force override so every file in the
+   * directory refreshes on `-u`.
+   */
+  protected static function mirrorAsset($source, $target) {
+    (new Filesystem())->mirror($source, $target, NULL, ['override' => TRUE]);
+  }
+
+  /**
    * Add the BrowserSync docker-compose service.
    */
   protected static function copyBrowsersync(Event $event) {
     try {
-      (new Filesystem())->copy(__DIR__ . '/../assets/docker-compose.browsersync.yaml', static::$ddevRoot . 'docker-compose.browsersync.yaml');
+      static::copyAsset(__DIR__ . '/../assets/docker-compose.browsersync.yaml', static::$ddevRoot . 'docker-compose.browsersync.yaml');
       $event->getIO()->info('<info>docker-compose.browsersync.yaml added.</info>');
     }
     catch (\Error $e) {
@@ -478,10 +504,9 @@ class Ddev {
    * a consistent, versioned copy alongside the rest of ddev-drupal.
    */
   protected static function copySeleniumChrome(Event $event) {
-    $fileSystem = new Filesystem();
     try {
-      $fileSystem->copy(__DIR__ . '/../assets/docker-compose.selenium-chrome.yaml', static::$ddevRoot . 'docker-compose.selenium-chrome.yaml');
-      $fileSystem->copy(__DIR__ . '/../assets/config.selenium-standalone-chrome.yaml', static::$ddevRoot . 'config.selenium-standalone-chrome.yaml');
+      static::copyAsset(__DIR__ . '/../assets/docker-compose.selenium-chrome.yaml', static::$ddevRoot . 'docker-compose.selenium-chrome.yaml');
+      static::copyAsset(__DIR__ . '/../assets/config.selenium-standalone-chrome.yaml', static::$ddevRoot . 'config.selenium-standalone-chrome.yaml');
       $event->getIO()->info('<info>Selenium Chrome (FunctionalJavascript / Nightwatch) added.</info>');
     }
     catch (\Error $e) {
@@ -667,8 +692,8 @@ class Ddev {
           $config['hooks']['post-start'][]['exec-host'] = 'ddev solrcollection';
         }
         $fileSystem->dumpFile(static::$configPath, Yaml::dump($config));
-        $fileSystem->mirror(__DIR__ . '/../assets/solr', static::$ddevRoot . 'solr');
-        $fileSystem->copy(__DIR__ . '/../assets/docker-compose.solr.yaml', static::$ddevRoot . 'docker-compose.solr.yaml');
+        static::mirrorAsset(__DIR__ . '/../assets/solr', static::$ddevRoot . 'solr');
+        static::copyAsset(__DIR__ . '/../assets/docker-compose.solr.yaml', static::$ddevRoot . 'docker-compose.solr.yaml');
 
         $io->info('[Enabled] Solr');
       }
@@ -744,8 +769,8 @@ class Ddev {
     }
 
     try {
-      $fileSystem->copy(__DIR__ . '/../assets/docker-compose.redis.yaml', $composePath);
-      $fileSystem->mirror(__DIR__ . '/../assets/redis', static::$ddevRoot . 'redis');
+      static::copyAsset(__DIR__ . '/../assets/docker-compose.redis.yaml', $composePath);
+      static::mirrorAsset(__DIR__ . '/../assets/redis', static::$ddevRoot . 'redis');
       $io->info('[Enabled] Redis');
     }
     catch (\Error $e) {
@@ -890,7 +915,7 @@ class Ddev {
 
     if (version_compare($phpVersion, '8.2', '<')) {
       try {
-        $fileSystem->copy(__DIR__ . '/../assets/web-build/Dockerfile.ddev-terminus', static::$ddevRoot . 'web-build/Dockerfile.ddev-terminus');
+        static::copyAsset(__DIR__ . '/../assets/web-build/Dockerfile.ddev-terminus', static::$ddevRoot . 'web-build/Dockerfile.ddev-terminus');
       }
       catch (\Error $e) {
         $io->error('<error>' . $e->getMessage() . '</error>');
