@@ -151,12 +151,13 @@ final class DdevTest extends DdevTestCase {
   }
 
   // ---------------------------------------------------------------------------
-  // Mode self-detection: argsRequestUpdate() + isConfigured()
+  // Entry-point seams: argsRequestUpdate() + isConfigured() + isDdevContext()
   //
-  // These back shouldUpdate(), which decides fresh-vs-refresh without a flag.
-  // shouldUpdate() itself needs a Composer Event/IO (not a dev dep here), so we
-  // test the two pure seams it composes. Generic (not Drupal-specific); belong
-  // in DdevTestCase once ddev-wordpress carries the same change.
+  // argsRequestUpdate backs the unadvertised `update` override; isConfigured
+  // seeds the Pantheon prompt default; isDdevContext guards the install/update
+  // auto-refresh hooks so they never fire on a Pantheon build / CI / host
+  // composer run. Generic (not Drupal-specific); belong in DdevTestCase once
+  // ddev-wordpress carries the same change.
   // ---------------------------------------------------------------------------
 
   public function testArgsRequestUpdateDetectsFlags(): void {
@@ -169,6 +170,55 @@ final class DdevTest extends DdevTestCase {
   public function testArgsRequestUpdateFalseWithoutFlag(): void {
     $this->assertFalse(self::call('argsRequestUpdate', []));
     $this->assertFalse(self::call('argsRequestUpdate', ['foo', '-x']));
+  }
+
+  public function testIsDdevContextReflectsEnv(): void {
+    // The auto-refresh hooks are a silent no-op unless this is true — the guard
+    // that keeps `composer install` from rewriting .ddev on a Pantheon build.
+    $orig = getenv('IS_DDEV_PROJECT');
+    try {
+      putenv('IS_DDEV_PROJECT=true');
+      $this->assertTrue(self::call('isDdevContext'));
+      putenv('IS_DDEV_PROJECT=false');
+      $this->assertFalse(self::call('isDdevContext'));
+      // Unset (Pantheon build / CI / host composer) — must not be treated as ddev.
+      putenv('IS_DDEV_PROJECT');
+      $this->assertFalse(self::call('isDdevContext'));
+    }
+    finally {
+      $orig === FALSE ? putenv('IS_DDEV_PROJECT') : putenv('IS_DDEV_PROJECT=' . $orig);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Composer hook wiring: mergeHook()
+  //
+  // ensureComposerHooks() adds our install/update handlers to composer.json
+  // without clobbering a co-existing hook (e.g. Pantheon's) — something
+  // `composer config` can't do. The merge logic is pure and lives here; only
+  // the file I/O in ensureComposerHooks() touches JsonManipulator (runtime-only).
+  // ---------------------------------------------------------------------------
+
+  public function testMergeHookCreatesScalarWhenMissing(): void {
+    $this->assertSame('Augustash\\Ddev::postUpdate',
+      self::call('mergeHook', NULL, 'Augustash\\Ddev::postUpdate'));
+  }
+
+  public function testMergeHookConvertsScalarToArrayPreservingExisting(): void {
+    // An existing single hook (e.g. Pantheon's) must survive, ours appended.
+    $this->assertSame(['DrupalComposerManaged\\ComposerScripts::postUpdate', 'Augustash\\Ddev::postUpdate'],
+      self::call('mergeHook', 'DrupalComposerManaged\\ComposerScripts::postUpdate', 'Augustash\\Ddev::postUpdate'));
+  }
+
+  public function testMergeHookAppendsToExistingArray(): void {
+    $this->assertSame(['A::x', 'B::y', 'Augustash\\Ddev::postUpdate'],
+      self::call('mergeHook', ['A::x', 'B::y'], 'Augustash\\Ddev::postUpdate'));
+  }
+
+  public function testMergeHookIsIdempotent(): void {
+    // Already present in either form → unchanged, so a re-run never duplicates.
+    $this->assertSame('Ours', self::call('mergeHook', 'Ours', 'Ours'));
+    $this->assertSame(['A', 'Ours'], self::call('mergeHook', ['A', 'Ours'], 'Ours'));
   }
 
   public function testIsConfiguredTrueForNonEmptyName(): void {

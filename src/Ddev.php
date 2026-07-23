@@ -2,6 +2,7 @@
 
 namespace Augustash;
 
+use Composer\Json\JsonManipulator;
 use Composer\Script\Event;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Yaml\Yaml;
@@ -17,6 +18,13 @@ class Ddev {
    * @var string
    */
   private static $configPath = __DIR__ . '/../../../../.ddev/config.yaml';
+
+  /**
+   * Path to the project composer.json.
+   *
+   * @var string
+   */
+  private static $composerPath = __DIR__ . '/../../../../composer.json';
 
   /**
    * Path to gitignore file.
@@ -49,30 +57,155 @@ class Ddev {
   /**
    * Entry point for the `ddev-setup` composer script.
    *
-   * The mode is self-detected (see shouldUpdate()): a brand-new project runs the
-   * interactive first-time setup, an already-configured one defaults to a
-   * non-destructive refresh and only reconfigures when the dev opts in. No flag
-   * to remember; see run() for the orchestration.
+   * Runs the interactive config flow, each prompt seeded from any existing value
+   * so pressing enter preserves it (which also makes a non-interactive run
+   * non-destructive — it re-affirms the current config rather than clobbering
+   * it). Routine scaffolding refreshes happen automatically via the
+   * install/update hooks, so a manual run means "I want to (re)configure". The
+   * unadvertised `update` argument forces a no-prompt refresh instead. See run()
+   * for the orchestration.
    *
    * @param \Composer\Script\Event $event
    *   The event.
    */
   public static function postPackageInstall(Event $event) {
-    static::run($event, static::shouldUpdate($event), TRUE);
+    // Wire the hooks first so the one-time bootstrap lands even if the config
+    // prompts below are aborted — the wiring is independent of them.
+    static::ensureComposerHooks($event);
+    static::run($event, static::isUpdateMode($event), TRUE);
   }
 
   /**
-   * Run on post-update-cmd.
+   * Auto-fired on `composer install` (post-install-cmd).
    *
-   * Auto-fired on `composer update`. Always runs in update mode (no prompts)
-   * and skips the wkhtmltopdf migration, which performs its own composer
-   * operations and must not run inside a composer update.
+   * Catches teammates who pull the project and `composer install` without
+   * knowing setup exists — the scaffolding refreshes for them, no command to
+   * remember. See autoRefresh() for the ddev guard.
+   *
+   * @param \Composer\Script\Event $event
+   *   The event.
+   */
+  public static function postInstall(Event $event) {
+    static::autoRefresh($event);
+  }
+
+  /**
+   * Auto-fired on `composer update` (post-update-cmd).
    *
    * @param \Composer\Script\Event $event
    *   The event.
    */
   public static function postUpdate(Event $event) {
+    static::autoRefresh($event);
+  }
+
+  /**
+   * Shared auto-refresh for the install/update hooks — ddev context only.
+   *
+   * Runs in update mode (no prompts) and skips the wkhtmltopdf migration, which
+   * performs its own composer operations and must not run inside a composer
+   * install/update. Guarded to the ddev web container: `composer install` also
+   * runs during Pantheon's build, CI, and host tooling, where rewriting the
+   * .ddev scaffolding would be wrong or destructive — those are a silent no-op.
+   *
+   * @param \Composer\Script\Event $event
+   *   The event.
+   */
+  private static function autoRefresh(Event $event) {
+    if (!static::isDdevContext()) {
+      return;
+    }
     static::run($event, TRUE, FALSE);
+  }
+
+  /**
+   * Whether we're running inside the ddev web container.
+   *
+   * DDEV sets IS_DDEV_PROJECT=true in the web container and nowhere else, so it
+   * cleanly separates a ddev run from a Pantheon build / CI / host composer run.
+   *
+   * @return bool
+   *   TRUE when running inside ddev.
+   */
+  protected static function isDdevContext() {
+    return getenv('IS_DDEV_PROJECT') === 'true';
+  }
+
+  /**
+   * Wire the install/update auto-refresh hooks into composer.json in place.
+   *
+   * Runs on the manual `ddev composer ddev-setup` path so the hooks are laid
+   * down the first time setup is run; thereafter they fire on their own. The two
+   * lifecycle events may already hold another handler (e.g. a Pantheon
+   * DrupalComposerManaged hook), so ours is merged in, not overwritten —
+   * `composer config` can't: `--merge --json` stringifies the array and clobbers
+   * a scalar, and the `Augustash\Ddev` backslashes are eaten through the host→
+   * container double shell. Doing it here keeps a backslash a backslash, and
+   * JsonManipulator preserves the file's existing formatting rather than
+   * reflowing it. `ddev-setup` itself isn't touched — it's a scalar nobody else
+   * defines, wired by the installer directly.
+   *
+   * @param \Composer\Script\Event $event
+   *   The event.
+   */
+  protected static function ensureComposerHooks(Event $event) {
+    if (!file_exists(static::$composerPath)) {
+      return;
+    }
+    $contents = file_get_contents(static::$composerPath);
+    $config = json_decode($contents, TRUE);
+    if (!is_array($config)) {
+      return;
+    }
+    $scripts = $config['scripts'] ?? [];
+    $handlers = [
+      'post-install-cmd' => 'Augustash\\Ddev::postInstall',
+      'post-update-cmd' => 'Augustash\\Ddev::postUpdate',
+    ];
+
+    $manipulator = new JsonManipulator($contents);
+    $wired = [];
+    foreach ($handlers as $name => $handler) {
+      $current = $scripts[$name] ?? NULL;
+      $merged = static::mergeHook($current, $handler);
+      if ($merged !== $current) {
+        $manipulator->addSubNode('scripts', $name, $merged);
+        $wired[] = $name;
+      }
+    }
+
+    if ($wired) {
+      file_put_contents(static::$composerPath, $manipulator->getContents());
+      $event->getIO()->info('<info>Wired composer auto-refresh hooks: ' . implode(', ', $wired) . '.</info>');
+    }
+  }
+
+  /**
+   * Merge our handler into an existing composer script value.
+   *
+   * Missing → create as a scalar; an existing scalar → [theirs, ours]; an
+   * existing array → append ours. Already present → returned unchanged (strict
+   * `===` compare against the input), so a re-run never duplicates and writes
+   * nothing.
+   *
+   * @param string|array|null $current
+   *   The current value of the script hook.
+   * @param string $handler
+   *   Our handler, e.g. 'Augustash\Ddev::postUpdate'.
+   *
+   * @return string|array
+   *   The merged value.
+   */
+  protected static function mergeHook($current, $handler) {
+    if ($current === NULL) {
+      return $handler;
+    }
+    $list = is_array($current) ? $current : [$current];
+    if (in_array($handler, $list, TRUE)) {
+      return $current;
+    }
+    $list[] = $handler;
+    return $list;
   }
 
   /**
@@ -173,44 +306,12 @@ class Ddev {
   }
 
   /**
-   * Decide whether this run refreshes in place or reconfigures.
-   *
-   * The mode is inferred so no one has to remember a flag:
-   * - An unconfigured project (no `name` in config.yaml — a fresh scaffold) runs
-   *   the interactive first-time setup; there is nothing to preserve.
-   * - An already-configured project defaults to the non-destructive refresh and
-   *   only drops into the reconfigure prompts when the dev explicitly asks to
-   *   change values. With no TTY, askConfirmation returns its default (No), so
-   *   an unattended re-run refreshes rather than clobbers the existing config —
-   *   the failure mode a bare `ddev composer ddev-setup` used to hit.
-   * - An explicit `update`/`-u` argument still forces update mode, unadvertised,
-   *   for scripted callers that want zero prompting even with a TTY.
-   *
-   * @param \Composer\Script\Event $event
-   *   The event.
-   *
-   * @return bool
-   *   TRUE to run in update mode, FALSE to run the interactive fresh path.
-   */
-  protected static function shouldUpdate(Event $event) {
-    if (static::isUpdateMode($event)) {
-      return TRUE;
-    }
-    if (!static::isConfigured()) {
-      return FALSE;
-    }
-    return !$event->getIO()->askConfirmation(
-      '<info>Change any project configuration values (client code, versions, Pantheon site)?</info> [<comment>y/N</comment>] ',
-      FALSE
-    );
-  }
-
-  /**
    * Whether config.yaml already describes a configured project.
    *
    * "Configured" means a non-empty `name`: the asset config.yaml that a fresh
-   * scaffold lands ships an empty name, so this cleanly separates first-time
-   * setup from a re-run.
+   * scaffold lands ships an empty name. Used to seed the Pantheon prompt default
+   * (a brand-new site defaults to yes; an existing one matches its current
+   * state).
    *
    * @return bool
    *   TRUE when config.yaml exists and carries a non-empty name.
