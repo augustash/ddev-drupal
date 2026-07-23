@@ -150,6 +150,125 @@ final class DdevTest extends DdevTestCase {
     $this->assertNotSame($before, self::call('fingerprint'));
   }
 
+  // ---------------------------------------------------------------------------
+  // Mode self-detection: argsRequestUpdate() + isConfigured()
+  //
+  // These back shouldUpdate(), which decides fresh-vs-refresh without a flag.
+  // shouldUpdate() itself needs a Composer Event/IO (not a dev dep here), so we
+  // test the two pure seams it composes. Generic (not Drupal-specific); belong
+  // in DdevTestCase once ddev-wordpress carries the same change.
+  // ---------------------------------------------------------------------------
+
+  public function testArgsRequestUpdateDetectsFlags(): void {
+    $this->assertTrue(self::call('argsRequestUpdate', ['-u']));
+    $this->assertTrue(self::call('argsRequestUpdate', ['--update']));
+    $this->assertTrue(self::call('argsRequestUpdate', ['update']));
+    $this->assertTrue(self::call('argsRequestUpdate', ['x', 'update']));
+  }
+
+  public function testArgsRequestUpdateFalseWithoutFlag(): void {
+    $this->assertFalse(self::call('argsRequestUpdate', []));
+    $this->assertFalse(self::call('argsRequestUpdate', ['foo', '-x']));
+  }
+
+  public function testIsConfiguredTrueForNonEmptyName(): void {
+    $dir = $this->setConfigDir();
+    file_put_contents($dir . '/config.yaml', "name: ilc\n");
+    $this->assertTrue(self::call('isConfigured'));
+  }
+
+  public function testIsConfiguredFalseForEmptyName(): void {
+    // The asset config.yaml a fresh scaffold lands ships an empty name — this is
+    // the case that must route to first-time setup, not a refresh.
+    $dir = $this->setConfigDir();
+    file_put_contents($dir . '/config.yaml', "name:\ndocroot: web\n");
+    $this->assertFalse(self::call('isConfigured'));
+  }
+
+  public function testIsConfiguredFalseWhenNameKeyMissingOrFileAbsent(): void {
+    $dir = $this->setConfigDir();
+    file_put_contents($dir . '/config.yaml', "docroot: web\n");
+    $this->assertFalse(self::call('isConfigured'));
+
+    // No config.yaml at all (setConfigDir points at an empty temp dir).
+    $this->setConfigDir();
+    $this->assertFalse(self::call('isConfigured'));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Value preservation on the fresh path: configureSite() / currentDrupalVersion
+  // / pantheonEnvValues()
+  //
+  // The reported bug: a non-interactive re-run wrote empty prompt answers over
+  // an already-configured site (name → null, php → default, Pantheon site →
+  // 'aai'+empty). configureSite() now guards name; the seed helpers let the
+  // prompts default to the existing values.
+  // ---------------------------------------------------------------------------
+
+  public function testConfigureSitePreservesNameWhenClientCodeEmpty(): void {
+    // Both '' and NULL (the two shapes an unanswered prompt takes) must leave
+    // the existing name intact — the core of the reported regression.
+    $config = ['name' => 'ilc'];
+    $this->assertSame('ilc', self::call('configureSite', $config, '', 'web', '10', '8.3')['name']);
+    $this->assertSame('ilc', self::call('configureSite', $config, NULL, 'web', '10', '8.3')['name']);
+  }
+
+  public function testConfigureSiteSetsNameWhenClientCodeGiven(): void {
+    $result = self::call('configureSite', [], 'newcode', 'web', '11', '8.3');
+    $this->assertSame('newcode', $result['name']);
+    $this->assertSame('drupal11', $result['type']);
+    $this->assertSame('8.3', $result['php_version']);
+    $this->assertSame('web', $result['docroot']);
+  }
+
+  public function testCurrentDrupalVersionParsesTypeElseFallsBack(): void {
+    $this->assertSame('10', self::call('currentDrupalVersion', ['type' => 'drupal10']));
+    $this->assertSame('11', self::call('currentDrupalVersion', ['type' => 'drupal11']));
+    $this->assertSame('10', self::call('currentDrupalVersion', []));
+    $this->assertSame('10', self::call('currentDrupalVersion', ['type' => 'wordpress']));
+  }
+
+  public function testPantheonEnvValuesExtractsSiteAndEnvironment(): void {
+    $config = ['web_environment' => [
+      'DDEV_PANTHEON_SITE=aaiilc',
+      'DDEV_PANTHEON_ENVIRONMENT=live',
+      'OTHER=1',
+    ]];
+    $this->assertSame(['aaiilc', 'live'], self::call('pantheonEnvValues', $config));
+  }
+
+  public function testPantheonEnvValuesNullsWhenAbsent(): void {
+    $this->assertSame([NULL, NULL], self::call('pantheonEnvValues', []));
+    $this->assertSame([NULL, NULL], self::call('pantheonEnvValues', ['web_environment' => ['X=1']]));
+  }
+
+  // ---------------------------------------------------------------------------
+  // No-op detection: config-shaping convergence
+  //
+  // The closing "Everything up-to-date." vs "run ddev restart" message is gated
+  // on a fingerprint delta, so the shaping pipeline must reach a fixed point —
+  // a second identical pass changes nothing, or a re-run would forever claim a
+  // change and nag for a restart.
+  // ---------------------------------------------------------------------------
+
+  public function testConfigShapingConvergesOnSecondPass(): void {
+    // The shaping pipeline must reach a fixed point — a second identical pass
+    // changes nothing — so a genuine no-op run reports up-to-date.
+    $config = [
+      'name' => 'site',
+      'web_environment' => ['PANTHEON_SITE=mysite', 'WORKING_ENVIRONMENT=live'],
+      'hooks' => ['post-start' => [['exec-host' => 'ddev add-on get augustash/ddev-pantheon-db']]],
+      'webserver_type' => 'nginx-fpm',
+    ];
+    $shape = function ($c) {
+      $c = self::call('migratePantheonEnv', $c);
+      $c = self::call('applyPantheonHooks', $c);
+      return self::call('pruneDefaultKeys', $c);
+    };
+    $once = $shape($config);
+    $this->assertSame($once, $shape($once), 'Shaping must be a fixed point on the second pass.');
+  }
+
   /**
    * Point $ddevRoot and $gitIgnorePath at the temp dir setConfigDir() created.
    *

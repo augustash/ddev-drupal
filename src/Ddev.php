@@ -49,14 +49,16 @@ class Ddev {
   /**
    * Entry point for the `ddev-setup` composer script.
    *
-   * Honors an optional update flag (`-u`) to refresh in place without prompts;
-   * see run() for the orchestration.
+   * The mode is self-detected (see shouldUpdate()): a brand-new project runs the
+   * interactive first-time setup, an already-configured one defaults to a
+   * non-destructive refresh and only reconfigures when the dev opts in. No flag
+   * to remember; see run() for the orchestration.
    *
    * @param \Composer\Script\Event $event
    *   The event.
    */
   public static function postPackageInstall(Event $event) {
-    static::run($event, static::isUpdateMode($event), TRUE);
+    static::run($event, static::shouldUpdate($event), TRUE);
   }
 
   /**
@@ -92,8 +94,8 @@ class Ddev {
   protected static function run(Event $event, $update, $runWkhtmltopdf) {
     // postUpdate fires this on every `composer update`, so most runs are no-ops
     // that rewrite the scaffolding byte-for-byte. Fingerprint the managed files
-    // up front (update mode only) so the restart prompt at the end fires only
-    // when something that actually lands in the containers changed.
+    // up front (update mode only) so the closing message reflects whether
+    // anything that actually lands in the containers changed.
     $before = $update ? static::fingerprint() : NULL;
 
     static::syncConfig();
@@ -110,10 +112,10 @@ class Ddev {
     $config = Yaml::parseFile(static::$configPath);
 
     if ($update) {
-      // Update mode (`ddev composer ddev-setup -- -u`): keep all configured
-      // values and skip the prompts. Infer prior choices from the existing
-      // config so the generated scaffolding and hooks can be refreshed in
-      // place — e.g. an existing Pantheon site has its add-on hook upgraded.
+      // Update mode: keep all configured values and skip the prompts. Infer
+      // prior choices from the existing config so the generated scaffolding and
+      // hooks can be refreshed in place — e.g. an existing Pantheon site has its
+      // add-on hook upgraded.
       static::$docRoot = $config['docroot'] ?? 'web';
       // Rename legacy Pantheon env vars before detection so sites configured
       // prior to the DDEV_ prefix switch are recognised and refreshed.
@@ -125,10 +127,16 @@ class Ddev {
       $io->info('<info>Update mode: configuration left untouched; rebuilding scaffolding.</info>');
     }
     else {
-      $clientCode = $io->ask('<info>Client code?</info>:' . "\n > ");
-      $docRoot = static::$docRoot = $io->ask('<info>Document root?</info>  [<comment>web</comment>]:' . "\n > ", 'web') ?: '';
-      $drupalVersion = static::selectDrupalVersion($event);
-      $phpVersion = static::selectPhpVersion($event);
+      // Seed each prompt's default from the existing config so re-running to
+      // change one value never silently drops the rest — pressing enter keeps
+      // the current value. On a first-time setup these fall back to empties/ddev
+      // defaults.
+      $nameDefault = $config['name'] ?? NULL;
+      $docRootDefault = $config['docroot'] ?? 'web';
+      $clientCode = $io->ask('<info>Client code?</info>' . ($nameDefault ? '  [<comment>' . $nameDefault . '</comment>]' : '') . ':' . "\n > ", $nameDefault);
+      $docRoot = static::$docRoot = $io->ask('<info>Document root?</info>  [<comment>' . $docRootDefault . '</comment>]:' . "\n > ", $docRootDefault) ?: '';
+      $drupalVersion = static::selectDrupalVersion($event, static::currentDrupalVersion($config));
+      $phpVersion = static::selectPhpVersion($event, $config['php_version'] ?? '8.1');
 
       $config = static::configureSite($config, $clientCode, $docRoot, $drupalVersion, $phpVersion);
       $config = static::configurePantheon($event, $config, $clientCode, $phpVersion);
@@ -149,32 +157,99 @@ class Ddev {
     static::installSolr($event, $update);
     static::installRedis($event, $update);
 
-    if ($update && static::fingerprint() !== $before) {
-      // Something changed. The add-on pull and container rebuilds happen on the
-      // host at start, which this in-container script can't trigger, so prompt a
-      // restart to re-run the post-start hooks (e.g. ddev add-on get). When the
-      // refresh was a no-op (fingerprint unchanged) we stay silent.
-      $io->write('');
-      $io->write('<info>Scaffolding refreshed.</info> Run <comment>ddev restart</comment> to rebuild the containers and re-pull add-ons (e.g. ddev-pantheon-db).');
-      $io->write('');
+    // Close with an honest status. This runs in the web container and can't
+    // trigger `ddev restart` itself (ddev is a host binary, and the in-container
+    // ddev is a no-op stub), so when a managed file changed we tell the dev to
+    // restart; when nothing did, we say so. A fresh setup always counts as
+    // changed; update mode only when the fingerprint actually moved.
+    $io->write('');
+    if (!$update || static::fingerprint() !== $before) {
+      $io->write('<info>Scaffolding refreshed — run</info> <comment>ddev restart</comment> <info>to acquire the changes (rebuild containers, re-pull add-ons).</info>');
     }
+    else {
+      $io->write('<info>Everything up-to-date.</info>');
+    }
+    $io->write('');
   }
 
   /**
-   * Determine whether ddev-setup was invoked in update mode.
+   * Decide whether this run refreshes in place or reconfigures.
    *
-   * Update mode (`ddev composer ddev-setup -- -u`) refreshes the generated
-   * scaffolding and hooks without re-prompting for, or rewriting, the
-   * project's configuration values.
+   * The mode is inferred so no one has to remember a flag:
+   * - An unconfigured project (no `name` in config.yaml — a fresh scaffold) runs
+   *   the interactive first-time setup; there is nothing to preserve.
+   * - An already-configured project defaults to the non-destructive refresh and
+   *   only drops into the reconfigure prompts when the dev explicitly asks to
+   *   change values. With no TTY, askConfirmation returns its default (No), so
+   *   an unattended re-run refreshes rather than clobbers the existing config —
+   *   the failure mode a bare `ddev composer ddev-setup` used to hit.
+   * - An explicit `update`/`-u` argument still forces update mode, unadvertised,
+   *   for scripted callers that want zero prompting even with a TTY.
    *
    * @param \Composer\Script\Event $event
    *   The event.
    *
    * @return bool
-   *   TRUE when an update flag (-u, --update, or update) was passed.
+   *   TRUE to run in update mode, FALSE to run the interactive fresh path.
+   */
+  protected static function shouldUpdate(Event $event) {
+    if (static::isUpdateMode($event)) {
+      return TRUE;
+    }
+    if (!static::isConfigured()) {
+      return FALSE;
+    }
+    return !$event->getIO()->askConfirmation(
+      '<info>Change any project configuration values (client code, versions, Pantheon site)?</info> [<comment>y/N</comment>] ',
+      FALSE
+    );
+  }
+
+  /**
+   * Whether config.yaml already describes a configured project.
+   *
+   * "Configured" means a non-empty `name`: the asset config.yaml that a fresh
+   * scaffold lands ships an empty name, so this cleanly separates first-time
+   * setup from a re-run.
+   *
+   * @return bool
+   *   TRUE when config.yaml exists and carries a non-empty name.
+   */
+  protected static function isConfigured() {
+    if (!(new Filesystem())->exists(static::$configPath)) {
+      return FALSE;
+    }
+    $config = Yaml::parseFile(static::$configPath);
+    return !empty($config['name']);
+  }
+
+  /**
+   * Determine whether an explicit update flag was passed.
+   *
+   * @param \Composer\Script\Event $event
+   *   The event.
+   *
+   * @return bool
+   *   TRUE when -u, --update, or update is present.
    */
   protected static function isUpdateMode(Event $event) {
-    foreach ($event->getArguments() as $arg) {
+    return static::argsRequestUpdate($event->getArguments());
+  }
+
+  /**
+   * Whether a raw argument list requests update mode.
+   *
+   * Split from isUpdateMode() so the flag parsing is unit-testable without a
+   * Composer Event.
+   *
+   * @param array $args
+   *   The script arguments.
+   *
+   * @return bool
+   *   TRUE when -u, --update, or update is present.
+   */
+  protected static function argsRequestUpdate(array $args) {
+    foreach ($args as $arg) {
       if (in_array($arg, ['-u', '--update', 'update'], TRUE)) {
         return TRUE;
       }
@@ -185,10 +260,16 @@ class Ddev {
   /**
    * Prompt for the Drupal version.
    *
+   * @param \Composer\Script\Event $event
+   *   The event.
+   * @param string $default
+   *   The pre-selected version (seeded from the existing config on a re-run);
+   *   falls back to "10" when not one of the offered versions.
+   *
    * @return string
    *   The selected Drupal major version (e.g. "10").
    */
-  protected static function selectDrupalVersion(Event $event) {
+  protected static function selectDrupalVersion(Event $event, $default = '10') {
     $drupalVersions = [
       '7',
       '8',
@@ -196,25 +277,56 @@ class Ddev {
       '10',
       '11',
     ];
-    $index = $event->getIO()->select('<info>Drupal version</info> [<comment>10</comment>]:', $drupalVersions, '10');
+    if (!in_array($default, $drupalVersions, TRUE)) {
+      $default = '10';
+    }
+    $index = $event->getIO()->select('<info>Drupal version</info> [<comment>' . $default . '</comment>]:', $drupalVersions, $default);
     return $drupalVersions[$index];
   }
 
   /**
    * Prompt for the PHP version.
    *
+   * @param \Composer\Script\Event $event
+   *   The event.
+   * @param string $default
+   *   The pre-selected version (seeded from the existing config on a re-run);
+   *   falls back to "8.1" when not one of the offered versions.
+   *
    * @return string
    *   The selected PHP version (e.g. "8.1").
    */
-  protected static function selectPhpVersion(Event $event) {
+  protected static function selectPhpVersion(Event $event, $default = '8.1') {
     $phpVersions = [
       '7.4',
       '8.1',
       '8.2',
       '8.3',
     ];
-    $index = $event->getIO()->select('<info>PHP version</info> [<comment>8.1</comment>]:', $phpVersions, '8.1');
+    if (!in_array($default, $phpVersions, TRUE)) {
+      $default = '8.1';
+    }
+    $index = $event->getIO()->select('<info>PHP version</info> [<comment>' . $default . '</comment>]:', $phpVersions, $default);
     return $phpVersions[$index];
+  }
+
+  /**
+   * Extract the Drupal major version from an existing config's type.
+   *
+   * Seeds the version prompt so a re-run defaults to the site's current Drupal
+   * version rather than the generic fallback.
+   *
+   * @param array $config
+   *   The current site configuration.
+   *
+   * @return string
+   *   The major version (e.g. "10"), or "10" when type is absent/unparseable.
+   */
+  protected static function currentDrupalVersion(array $config) {
+    if (!empty($config['type']) && preg_match('/(\d+)/', $config['type'], $m)) {
+      return $m[1];
+    }
+    return '10';
   }
 
   /**
@@ -224,7 +336,12 @@ class Ddev {
    *   The updated configuration.
    */
   protected static function configureSite(array $config, $clientCode, $docRoot, $drupalVersion, $phpVersion) {
-    $config['name'] = $clientCode;
+    // Guard the name: an empty client code (e.g. a prompt answered with enter,
+    // or a non-interactive run) must never overwrite an existing name. A
+    // first-time setup legitimately starts empty and gets its name set here.
+    if ($clientCode !== NULL && $clientCode !== '') {
+      $config['name'] = $clientCode;
+    }
     $config['docroot'] = $docRoot;
     $config['type'] = 'drupal' . $drupalVersion;
     $config['php_version'] = $phpVersion;
@@ -243,15 +360,25 @@ class Ddev {
    */
   protected static function configurePantheon(Event $event, array $config, $clientCode, $phpVersion) {
     $io = $event->getIO();
+    [$existingSite, $existingEnv] = static::pantheonEnvValues($config);
 
-    if (!$io->askConfirmation('<info>Is this site hosted on Pantheon?</info> [<comment>Y/n</comment>] ', TRUE)) {
+    // Default the confirmation from the site's current state: an already-Pantheon
+    // site defaults to yes, a configured non-Pantheon one to no. A brand-new
+    // setup has neither, so default to yes (the common case for these sites).
+    $default = static::isConfigured() ? static::isPantheonSite($config) : TRUE;
+    $hint = $default ? '[<comment>Y/n</comment>]' : '[<comment>y/N</comment>]';
+    if (!$io->askConfirmation('<info>Is this site hosted on Pantheon?</info> ' . $hint . ' ', $default)) {
       // Non-Pantheon: drop any stale Terminus build artifact.
       (new Filesystem())->remove(static::$ddevRoot . 'web-build/Dockerfile.ddev-terminus');
       return $config;
     }
 
-    $siteName = $io->ask('<info>Pantheon site name</info> [<comment>' . 'aai' . $clientCode . '</comment>]:' . "\n > ", 'aai' . $clientCode);
-    $siteEnv = $io->ask('<info>Pantheon site environment (dev|test|live)</info> [<comment>live</comment>]:' . "\n > ", 'live');
+    // Seed from the existing env vars on a re-run; otherwise derive the usual
+    // 'aai'<client-code> guess for a first-time setup.
+    $siteDefault = $existingSite ?: 'aai' . $clientCode;
+    $envDefault = $existingEnv ?: 'live';
+    $siteName = $io->ask('<info>Pantheon site name</info> [<comment>' . $siteDefault . '</comment>]:' . "\n > ", $siteDefault);
+    $siteEnv = $io->ask('<info>Pantheon site environment (dev|test|live)</info> [<comment>' . $envDefault . '</comment>]:' . "\n > ", $envDefault);
 
     $config['web_environment'] = [
       'DDEV_PANTHEON_SITE=' . $siteName,
@@ -263,6 +390,32 @@ class Ddev {
     static::downgradeTerminus($event, $phpVersion);
 
     return $config;
+  }
+
+  /**
+   * Pull the current Pantheon site/environment out of web_environment.
+   *
+   * Seeds the Pantheon prompts so a re-run defaults to the existing values
+   * rather than re-deriving a guess from the client code.
+   *
+   * @param array $config
+   *   The current site configuration.
+   *
+   * @return array
+   *   A [site, environment] pair; either element is NULL when not present.
+   */
+  protected static function pantheonEnvValues(array $config) {
+    $site = NULL;
+    $env = NULL;
+    foreach ($config['web_environment'] ?? [] as $var) {
+      if (strpos($var, 'DDEV_PANTHEON_SITE=') === 0) {
+        $site = substr($var, strlen('DDEV_PANTHEON_SITE='));
+      }
+      elseif (strpos($var, 'DDEV_PANTHEON_ENVIRONMENT=') === 0) {
+        $env = substr($var, strlen('DDEV_PANTHEON_ENVIRONMENT='));
+      }
+    }
+    return [$site, $env];
   }
 
   /**
