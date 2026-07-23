@@ -3,56 +3,50 @@
 ### Single line
 
 ```bash
-ddev composer config --json --merge extra.drupal-scaffold.allowed-packages '["augustash/ddev-drupal"]' && ddev composer config scripts.ddev-setup "Augustash\\Ddev::postPackageInstall" && ddev composer config scripts.post-update-cmd "Augustash\\Ddev::postUpdate" && ddev composer require --dev augustash/ddev-drupal && ddev composer ddev-setup
+ddev composer config --json --merge extra.drupal-scaffold.allowed-packages '["augustash/ddev-drupal"]' && ddev composer config scripts.ddev-setup "Augustash\\Ddev::postPackageInstall" && ddev composer require --dev augustash/ddev-drupal && ddev composer ddev-setup
 ```
-
-> **Why scalar `composer config`, not `--json`?** The two script values contain
-> backslashes (the `Augustash\Ddev` namespace separator). Passing them as inline
-> JSON through `ddev composer config --json '[...]'` lets the double shell (host →
-> container) eat the backslashes, so Composer stores the value as a quoted *string*
-> — `"[\"Augustash\\Ddev::postUpdate\"]"` — instead of an array. The next
-> `composer update` then fails with `Class "[\"Augustash\Ddev ... is not autoloadable`.
-> The scalar form above sidesteps it: a single hook is a valid scalar script value.
-> (The `allowed-packages` line keeps `--json` safely — it has no backslashes.)
->
-> **Already have a `post-update-cmd`?** (e.g. a Pantheon
-> `DrupalComposerManaged\ComposerScripts::postUpdate` hook) the scalar command
-> *replaces* it. Skip that one segment and instead add `Augustash\Ddev::postUpdate`
-> to the existing array by editing `composer.json` directly, so both hooks run:
-> ```json
-> "post-update-cmd": [
->     "DrupalComposerManaged\\ComposerScripts::postUpdate",
->     "Augustash\\Ddev::postUpdate"
-> ]
-> ```
 
 # Updating
 
-The generated scaffolding and hooks refresh **automatically** on every
-`composer update`: the `post-update-cmd` hook (`Augustash\Ddev::postUpdate`)
-re-runs setup in update mode without re-prompting. So pulling the latest
-`ddev-drupal` is normally all you need:
+The generated scaffolding refreshes **automatically** — nobody has to remember a
+setup command. The initial `ddev composer ddev-setup` wires two composer hooks
+into `composer.json` (`post-install-cmd` → `Augustash\Ddev::postInstall`,
+`post-update-cmd` → `postUpdate`), merged alongside any hooks already there. From
+then on they re-run setup in update mode — no prompts — on every composer install
+or update:
 ```bash
-ddev composer update augustash/ddev-drupal
+ddev composer update augustash/ddev-drupal   # or just `ddev composer install` after a pull
 ```
+
+> **Upgrading a project installed before 1.1.62?** The auto-refresh hooks have to
+> be wired into your `composer.json` once — run `ddev composer ddev-setup update`
+> (no prompts). After that you never run it again; the scaffolding is kept
+> up-to-date automatically on every install/update.
+
 Update mode keeps your existing `config.yaml` values (client code, docroot,
-Drupal/PHP version, subdomains) and only rebuilds what may have changed —
-Selenium, BrowserSync, Solr (if already enabled), the Terminus image, and the
-Pantheon add-on hook (upgraded in place to track `develop`). Run `ddev restart`
-afterward to rebuild the containers and re-pull add-ons.
+Drupal/PHP version, subdomains, Pantheon env) and only rebuilds what may have
+changed — Selenium, BrowserSync, Solr (if already enabled), the Terminus image,
+and the Pantheon add-on hook (upgraded in place to track `develop`).
 
-To force a refresh **without** updating the package — or to run the one-time
-wkhtmltopdf→dompdf migration, which the automatic hook skips — re-run setup
-manually in update mode (`-u`):
-```bash
-ddev composer ddev-setup -- -u
-```
+The hooks run **only inside ddev** (guarded on `IS_DDEV_PROJECT`), so a Pantheon
+build, CI, or host `composer install` never touches the `.ddev` scaffolding.
 
-Omit `-u` to be re-prompted for the configuration values (the original setup
-flow):
+When a run changes a managed file it ends with *“Scaffolding refreshed — run
+`ddev restart` to acquire the changes”*; a no-op ends with *“Everything
+up-to-date.”* The script runs inside the web container and can't invoke the
+host's `ddev`, so it tells you to restart rather than doing it for you (ddev also
+warns natively when `config.yaml` changes).
+
+### Changing configuration values
+
+Since refreshes are automatic, you only run setup by hand when you actually need
+to **change** a value (a typo'd client code, a PHP bump, …):
 ```bash
 ddev composer ddev-setup
 ```
+It walks the config prompts pre-filled with your current answers — press enter to
+keep each, or type a new value for the one you're changing. The one-time
+wkhtmltopdf→dompdf migration also runs from here (the auto hooks skip it).
 
 ### Zookeeper image swap (Solr add-on)
 The `zoo` service moved from the legacy Bitnami image to the official multi-arch
@@ -67,7 +61,8 @@ recreate the collection in the fresh ZK store.
 
 # Configuration
 
-On ddev-setup, you will be prompted for:
+Running `ddev composer ddev-setup` (first-time setup, or to change a value) prompts
+for:
   - Client code
   - Document root (defaults to `web`)
   - Drupal version
@@ -78,7 +73,9 @@ On ddev-setup, you will be prompted for:
   - Subdomains (optional)
   - Solr support
 
-These are used to set config.yaml ddev configuration.
+These are used to set config.yaml ddev configuration. On a re-run each prompt is
+pre-filled with the project's current value, so pressing enter through them keeps
+the existing configuration unchanged.
 
 # Database
 
@@ -126,8 +123,8 @@ To force a fresh pull:
       - Ex. $config['search_api.server.[name]']['backend_config']['connector'] = 'solr_cloud_basic_auth';
     - Run: ddev solrcollection
 
-#### Solr version is 8.8.2 in docker-compose.solr, but does not match server version.
-  - Build version was changed to 8.8.2 to match Pantheon hosts exact version.
+#### Solr version is 8.11.4 in docker-compose.solr, but does not match server version.
+  - Build version was changed to 8.11.4 to match Pantheon hosts exact version.
     - Recreate your collection.
       - Navigate in your browser to http://[site-name].ddev.site:8983/solr/#/~collections.
         - Delete existing collection.
@@ -135,8 +132,7 @@ To force a fresh pull:
     - Reload your collection.
       - Navigate to http://[site-name].ddev.site/admin/config/search/search-api/server/[server-name].
         - Click 'Reload Collection'.
-        - Server version should now be 8.8.2.
+        - Server version should now be 8.11.4.
 
 #### TypeError: Drupal\search_api_solr\Utility\SolrCommandHelper::__construct(): Argument #4 ($configset_controller) must be of type Drupal\search_api_solr\Controller\SolrConfigSetController.
   - Update drupal/search_api_pantheon.
-
