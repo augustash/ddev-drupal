@@ -8,34 +8,20 @@ ddev composer config --json --merge extra.drupal-scaffold.allowed-packages '["au
 
 # Updating
 
-The generated scaffolding refreshes **automatically** — nobody has to remember a
-setup command. The initial `ddev composer ddev-setup` wires two composer hooks
-into `composer.json` (`post-install-cmd` → `Augustash\Ddev::postInstall`,
-`post-update-cmd` → `postUpdate`), merged alongside any hooks already there. From
-then on they re-run setup in update mode — no prompts — on every composer install
-or update:
+The scaffolding refreshes **automatically** in update mode (no prompts,
+ddev-only) via two `composer.json` hooks — keeping your `config.yaml` values and
+rebuilding only managed files (Selenium, BrowserSync, Solr, Terminus, the
+Pantheon add-on hook).
+
+**≥ 1.1.62** — automatic; just update:
 ```bash
-ddev composer update augustash/ddev-drupal   # or just `ddev composer install` after a pull
+ddev composer update augustash/ddev-drupal   # or `ddev composer install` after a pull
 ```
 
-> **Upgrading a project installed before 1.1.62?** The auto-refresh hooks have to
-> be wired into your `composer.json` once — run `ddev composer ddev-setup update`
-> (no prompts). After that you never run it again; the scaffolding is kept
-> up-to-date automatically on every install/update.
-
-Update mode keeps your existing `config.yaml` values (client code, docroot,
-Drupal/PHP version, subdomains, Pantheon env) and only rebuilds what may have
-changed — Selenium, BrowserSync, Solr (if already enabled), the Terminus image,
-and the Pantheon add-on hook (upgraded in place to track `develop`).
-
-The hooks run **only inside ddev** (guarded on `IS_DDEV_PROJECT`), so a Pantheon
-build, CI, or host `composer install` never touches the `.ddev` scaffolding.
-
-When a run changes a managed file it ends with *“Scaffolding refreshed — run
-`ddev restart` to acquire the changes”*; a no-op ends with *“Everything
-up-to-date.”* The script runs inside the web container and can't invoke the
-host's `ddev`, so it tells you to restart rather than doing it for you (ddev also
-warns natively when `config.yaml` changes).
+**< 1.1.62** — wire the hooks in once, then it's automatic:
+```bash
+ddev composer ddev-setup update
+```
 
 ### Changing configuration values
 
@@ -44,9 +30,6 @@ to **change** a value (a typo'd client code, a PHP bump, …):
 ```bash
 ddev composer ddev-setup
 ```
-It walks the config prompts pre-filled with your current answers — press enter to
-keep each, or type a new value for the one you're changing. The one-time
-wkhtmltopdf→dompdf migration also runs from here (the auto hooks skip it).
 
 ### Zookeeper image swap (Solr add-on)
 The `zoo` service moved from the legacy Bitnami image to the official multi-arch
@@ -58,6 +41,26 @@ ddev stop && docker volume rm "ddev-$(ddev describe -j | jq -r .raw.name)_zoo" &
 ```
 The `post-start` `ddev solrcollection` hook will repopulate the configset and
 recreate the collection in the fresh ZK store.
+
+### Solr version (8 or 9)
+When Solr is enabled, `ddev-setup` asks which major version to scaffold, matching
+Pantheon Search's offering. The chosen file is stamped to
+`.ddev/docker-compose.solr.yaml`; update runs preserve the choice (and re-pin the
+image), so a `composer update` never reverts your version.
+
+  - **8** — the legacy 3-node SolrCloud cluster with external ZooKeeper
+    (`docker-compose.solr.yaml`), pinned to Pantheon's `solr:8.11.4`.
+  - **9** — the official single-node
+    [ddev-solr](https://github.com/ddev/ddev-solr) build with embedded ZooKeeper
+    (`docker-compose.solr9.yaml`), pinned to Pantheon's `solr:9.10.1`.
+
+> **Solr 9 also needs a `solr_version` pin.** Scaffolding the container is not
+> enough: Search API Solr otherwise targets its lowest supported version and
+> emits a Solr 8 configset — which declares `solr.XSLTResponseWriter`, a class
+> removed from Solr 9 core — so collection creation fails and search dies. Pin it
+> on each search server in **settings.php** (one place covers both the local and
+> Pantheon servers), e.g.
+> `$config['search_api.server.local']['backend_config']['connector_config']['solr_version'] = '9';`
 
 # Configuration
 
@@ -71,7 +74,7 @@ for:
     - Pantheon site name
     - Pantheon site environment
   - Subdomains (optional)
-  - Solr support
+  - Solr support (and, if enabled, Solr version 8 or 9)
 
 These are used to set config.yaml ddev configuration. On a re-run each prompt is
 pre-filled with the project's current value, so pressing enter through them keeps

@@ -57,12 +57,12 @@ class Ddev {
   /**
    * Entry point for the `ddev-setup` composer script.
    *
-   * Runs the interactive config flow, each prompt seeded from any existing value
+   * Runs the interactive config flow, each prompt seeded from any prior value
    * so pressing enter preserves it (which also makes a non-interactive run
    * non-destructive — it re-affirms the current config rather than clobbering
    * it). Routine scaffolding refreshes happen automatically via the
    * install/update hooks, so a manual run means "I want to (re)configure". The
-   * unadvertised `update` argument forces a no-prompt refresh instead. See run()
+   * unadvertised `update` arg forces a no-prompt refresh instead. See run()
    * for the orchestration.
    *
    * @param \Composer\Script\Event $event
@@ -122,7 +122,7 @@ class Ddev {
    * Whether we're running inside the ddev web container.
    *
    * DDEV sets IS_DDEV_PROJECT=true in the web container and nowhere else, so it
-   * cleanly separates a ddev run from a Pantheon build / CI / host composer run.
+   * separates a ddev run from a Pantheon build / CI / host composer run.
    *
    * @return bool
    *   TRUE when running inside ddev.
@@ -135,10 +135,10 @@ class Ddev {
    * Wire the install/update auto-refresh hooks into composer.json in place.
    *
    * Runs on the manual `ddev composer ddev-setup` path so the hooks are laid
-   * down the first time setup is run; thereafter they fire on their own. The two
+   * down the first time setup runs; thereafter they fire on their own. The two
    * lifecycle events may already hold another handler (e.g. a Pantheon
    * DrupalComposerManaged hook), so ours is merged in, not overwritten —
-   * `composer config` can't: `--merge --json` stringifies the array and clobbers
+   * `composer config` can't: `--merge --json` stringifies the array, clobbers
    * a scalar, and the `Augustash\Ddev` backslashes are eaten through the host→
    * container double shell. Doing it here keeps a backslash a backslash, and
    * JsonManipulator preserves the file's existing formatting rather than
@@ -247,7 +247,7 @@ class Ddev {
     if ($update) {
       // Update mode: keep all configured values and skip the prompts. Infer
       // prior choices from the existing config so the generated scaffolding and
-      // hooks can be refreshed in place — e.g. an existing Pantheon site has its
+      // hooks can be refreshed — e.g. an existing Pantheon site has its
       // add-on hook upgraded.
       static::$docRoot = $config['docroot'] ?? 'web';
       // Rename legacy Pantheon env vars before detection so sites configured
@@ -262,7 +262,7 @@ class Ddev {
     else {
       // Seed each prompt's default from the existing config so re-running to
       // change one value never silently drops the rest — pressing enter keeps
-      // the current value. On a first-time setup these fall back to empties/ddev
+      // the current value. On first-time setup these fall back to empties/ddev
       // defaults.
       $nameDefault = $config['name'] ?? NULL;
       $docRootDefault = $config['docroot'] ?? 'web';
@@ -291,7 +291,7 @@ class Ddev {
     static::installRedis($event, $update);
 
     // Close with an honest status. This runs in the web container and can't
-    // trigger `ddev restart` itself (ddev is a host binary, and the in-container
+    // trigger `ddev restart` itself (ddev is a host binary; the in-container
     // ddev is a no-op stub), so when a managed file changed we tell the dev to
     // restart; when nothing did, we say so. A fresh setup always counts as
     // changed; update mode only when the fingerprint actually moved.
@@ -309,7 +309,7 @@ class Ddev {
    * Whether config.yaml already describes a configured project.
    *
    * "Configured" means a non-empty `name`: the asset config.yaml that a fresh
-   * scaffold lands ships an empty name. Used to seed the Pantheon prompt default
+   * scaffold lands ships an empty name. Seeds the Pantheon prompt default
    * (a brand-new site defaults to yes; an existing one matches its current
    * state).
    *
@@ -412,6 +412,50 @@ class Ddev {
   }
 
   /**
+   * Prompt for the Solr version to scaffold.
+   *
+   * The answer selects which compose asset installSolr() stamps: 8 is the
+   * legacy 3-node external-ZooKeeper cluster (docker-compose.solr.yaml), 9 the
+   * official single-node ddev-solr build (docker-compose.solr9.yaml). Seeded
+   * from the currently-scaffolded version so a re-run defaults to it; else 8.
+   *
+   * @param \Composer\Script\Event $event
+   *   The event.
+   * @param string $default
+   *   The pre-selected version ("8" or "9").
+   *
+   * @return string
+   *   The selected Solr major version ("8" or "9").
+   */
+  protected static function selectSolrVersion(Event $event, $default = '8') {
+    $versions = ['8', '9'];
+    if (!in_array($default, $versions, TRUE)) {
+      $default = '8';
+    }
+    $index = $event->getIO()->select('<info>Solr version</info> [<comment>' . $default . '</comment>]:', $versions, $default);
+    return $versions[$index];
+  }
+
+  /**
+   * Detect which Solr version is currently scaffolded.
+   *
+   * Update mode has no prompt, so the version is inferred from the stamped
+   * compose file to re-stamp the same one (a no-op when unchanged, keeping the
+   * restart-prompt fingerprint stable); it also seeds the fresh-run prompt
+   * default. The Solr 9 variant pins a `solr:9.x` image; the 8 variant 8.x.
+   *
+   * @param string $path
+   *   Path to the stamped docker-compose.solr.yaml (may not exist).
+   *
+   * @return string
+   *   "9" when the scaffolded file is the Solr 9 variant, otherwise "8".
+   */
+  protected static function detectSolrVersion($path) {
+    $contents = @file_get_contents($path) ?: '';
+    return preg_match('/\bsolr:9\b/', $contents) ? '9' : '8';
+  }
+
+  /**
    * Extract the Drupal major version from an existing config's type.
    *
    * Seeds the version prompt so a re-run defaults to the site's current Drupal
@@ -463,7 +507,7 @@ class Ddev {
     $io = $event->getIO();
     [$existingSite, $existingEnv] = static::pantheonEnvValues($config);
 
-    // Default the confirmation from the site's current state: an already-Pantheon
+    // Default the confirmation from the site's state: an already-Pantheon
     // site defaults to yes, a configured non-Pantheon one to no. A brand-new
     // setup has neither, so default to yes (the common case for these sites).
     $default = static::isConfigured() ? static::isPantheonSite($config) : TRUE;
@@ -717,10 +761,10 @@ class Ddev {
    *
    * Symfony's Filesystem::copy() is mtime-gated: with the default
    * $overwriteNewerFiles = FALSE it copies only when filemtime(source) >
-   * filemtime(target), so an existing target that is not older than the asset is
+   * filemtime(target), so an existing target no older than the asset is
    * silently skipped. Composer-installed assets carry install-time mtimes, so
    * against an already-deployed .ddev file a package update never lands. These
-   * files are package-owned scaffolding, so force the overwrite — `-u` must drop
+   * files are package-owned scaffolding, so force overwrite — `-u` must drop
    * the latest copy every time, regardless of mtime.
    */
   protected static function copyAsset($source, $target) {
@@ -879,7 +923,7 @@ class Ddev {
   /**
    * Drop web_environment vars already supplied by a config.*.yaml override.
    *
-   * ddev merges every `.ddev/config.*.yaml` into the effective config, so any
+   * DDEV merges every `.ddev/config.*.yaml` into the effective config, so any
    * var the main config repeats from an override (e.g. the Selenium/test vars
    * in config.selenium-standalone-chrome.yaml) is redundant. Removing the
    * duplicate keeps the main config focused on what's genuinely site-specific
@@ -926,17 +970,23 @@ class Ddev {
    *
    * @param \Composer\Script\Event $event
    *   The event.
+   * @param bool $update
+   *   When TRUE, skip the prompt and preserve the current Solr state/version.
    */
   protected static function installSolr(Event $event, $update = FALSE) {
     $fileSystem = new Filesystem();
     $io = $event->getIO();
+    $target = static::$ddevRoot . 'docker-compose.solr.yaml';
     if ($update) {
       // Don't prompt during an update; preserve the current Solr state and
-      // only rebuild the assets when it is already enabled.
-      $status = $fileSystem->exists(static::$ddevRoot . 'docker-compose.solr.yaml');
+      // version, only rebuilding the assets when Solr is already enabled.
+      $status = $fileSystem->exists($target);
+      $version = $status ? static::detectSolrVersion($target) : NULL;
     }
     else {
       $status = $io->askConfirmation('<info>Do you need Solr support?</info> [<comment>no</comment>]:' . "\n > ", FALSE);
+      // Seed the prompt from the currently-scaffolded version (defaults to 8).
+      $version = $status ? static::selectSolrVersion($event, static::detectSolrVersion($target)) : NULL;
     }
     if ($status) {
       try {
@@ -947,9 +997,16 @@ class Ddev {
         }
         $fileSystem->dumpFile(static::$configPath, Yaml::dump($config));
         static::mirrorAsset(__DIR__ . '/../assets/solr', static::$ddevRoot . 'solr');
-        static::copyAsset(__DIR__ . '/../assets/docker-compose.solr.yaml', static::$ddevRoot . 'docker-compose.solr.yaml');
+        // Scaffold the compose file matching the chosen version to the single
+        // target ddev loads: 8 is the legacy 3-node cluster, 9 the official
+        // single-node ddev-solr build. copyAsset() force-overwrites, so a
+        // version switch lands the selected file's exact bytes.
+        $source = $version === '9'
+          ? __DIR__ . '/../assets/docker-compose.solr9.yaml'
+          : __DIR__ . '/../assets/docker-compose.solr.yaml';
+        static::copyAsset($source, $target);
 
-        $io->info('[Enabled] Solr');
+        $io->info('[Enabled] Solr ' . $version);
       }
       catch (\Error $e) {
         $io->error('<error>' . $e->getMessage() . '</error>');
@@ -969,6 +1026,14 @@ class Ddev {
           $io->error('<error>' . $e->getMessage() . '</error>');
         }
       }
+
+      // The container is scaffolded, but Search API Solr also needs the target
+      // version: unset, it emits a Solr 8 configset (declaring the removed-in-9
+      // solr.XSLTResponseWriter), which fails collection creation on Solr 9.
+      // The pin lives in settings.php (it also covers Pantheon), not here.
+      if ($version === '9') {
+        $io->write('<comment>[Solr 9] Pin solr_version to 9 on your Search API Solr server(s) in settings.php, else collection creation fails on Solr 9.</comment>');
+      }
     }
     else {
       $fileSystem->remove(static::$ddevRoot . 'solr');
@@ -979,20 +1044,20 @@ class Ddev {
   /**
    * Optionally enable Redis for prod-parity local caching.
    *
-   * Modeled on installSolr(). Redis is the production cache backend; enabling it
+   * Modeled on installSolr(). Redis is the prod cache backend; enabling it
    * locally lets cache behavior (compression threshold, lock/checksum services,
    * contention under load) match live — important for representative profiling
    * and load testing.
    *
    * Follows DDEV's own convention (and the existing Solr/Selenium pattern): the
-   * service is a bundled, committed docker-compose.redis.yaml + redis/redis.conf
+   * service is a bundled docker-compose.redis.yaml + redis/redis.conf
    * copied from assets — not a re-fetching `ddev add-on get` post-start hook,
-   * which would re-run on every start and re-assert its own settings management.
+   * which would re-run on every start and re-assert its own settings.
    * The Drupal-side connection lives in settings.local.php (appended from
    * assets) and mirrors live exactly (compress_length, prefix, ttl offset,
    * invalidate-as-delete, lock/flood/checksum services, bootstrap container).
    *
-   * On a "no" the service files are removed (Solr-style); the settings.local.php
+   * On "no" the service files are removed (Solr-style); the settings.local.php
    * block, being a local override, is left in place — a no-op once the service
    * is gone, and harmless to keep.
    *
@@ -1106,8 +1171,8 @@ class Ddev {
   /**
    * Drop php_runtime_generation: 1 from pantheon.yml if present.
    *
-   * wkhtmltopdf was the sole blocker keeping sites on gen 1; removing the
-   * explicit line lets Pantheon default to gen 2.
+   * The wkhtmltopdf package was the sole blocker keeping sites on gen 1;
+   * removing the explicit line lets Pantheon default to gen 2.
    */
   protected static function upgradePantheonRuntime($projectRoot, $io) {
     $path = $projectRoot . '/pantheon.yml';
@@ -1159,9 +1224,9 @@ class Ddev {
 
   /**
    * Ddev installs its own version of Terminus.
-   * Terminus 4 requires PHP 8.2+.
    *
-   * If the site's PHP version is < 8.2, install Terminus 3.
+   * Terminus 4 requires PHP 8.2+. If the site's PHP version is < 8.2, install
+   * Terminus 3.
    */
   protected static function downgradeTerminus(Event $event, $phpVersion) {
     $fileSystem = new Filesystem();
