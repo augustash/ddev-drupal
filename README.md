@@ -54,13 +54,30 @@ image), so a `composer update` never reverts your version.
     [ddev-solr](https://github.com/ddev/ddev-solr) build with embedded ZooKeeper
     (`docker-compose.solr9.yaml`), pinned to Pantheon's `solr:9.10.1`.
 
-> **Solr 9 also needs a `solr_version` pin.** Scaffolding the container is not
-> enough: Search API Solr otherwise targets its lowest supported version and
-> emits a Solr 8 configset — which declares `solr.XSLTResponseWriter`, a class
-> removed from Solr 9 core — so collection creation fails and search dies. Pin it
-> on each search server in **settings.php** (one place covers both the local and
-> Pantheon servers), e.g.
-> `$config['search_api.server.local']['backend_config']['connector_config']['solr_version'] = '9';`
+**Deploying Solr 9 to Pantheon.** The prompt only scaffolds local ddev —
+Pantheon's Solr 9 is provisioned separately, and one step isn't discoverable:
+
+1. `pantheon.yml`: add a `search:` block with `version: 9`, then commit + push —
+   Pantheon provisions Solr 9 on deploy.
+2. Pin `solr_version` to `9` on each search server in **settings.php** — unset,
+   Search API Solr emits a Solr 8 configset that won't load on Solr 9:
+   ```php
+   $config['search_api.server.pantheon_search']['backend_config']['connector_config']['solr_version'] = '9';
+   $config['search_api.server.local']['backend_config']['connector_config']['solr_version'] = '9';
+   ```
+3. Upload the v9 configset — **nobody guesses this one; without it search is
+   dead** — then reindex:
+   ```bash
+   terminus remote:drush <site>.<env> -- search-api-pantheon:postSchema
+   terminus remote:drush <site>.<env> -- search-api:index <index>
+   ```
+
+> Reindex erroring with *“pending server tasks could not be executed”* over a
+> phantom index (e.g. a leftover `removeIndex` from the old Solr)? Clear the
+> stale task, then reindex:
+> ```bash
+> terminus remote:drush <site>.<env> -- sqlq "DELETE FROM search_api_task WHERE server_id='pantheon_search'"
+> ```
 
 # Configuration
 
