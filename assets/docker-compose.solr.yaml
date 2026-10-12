@@ -18,11 +18,6 @@
 # <project>.ddev.site:8983 and as http://solr:8983 from the web container.
 #
 # To access Solr: the admin interface is at http://<project>.ddev.site:8983.
-#
-# Switching from the 3-node build: run `ddev restart`, and the post-start
-# `ddev solrcollection` hook uploads the configset and recreates the collection
-# on the new node; then reindex (`ddev drush search-api:index`). The old
-# solr1/solr2/solr3/zoo volumes are no longer used and can be removed.
 services:
   solr:
     image: ${SOLR_BASE_IMAGE:-solr:8.11.4}

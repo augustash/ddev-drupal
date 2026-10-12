@@ -31,16 +31,6 @@ to **change** a value (a typo'd client code, a PHP bump, …):
 ddev composer ddev-setup
 ```
 
-### Solr 8 is a single node (Solr add-on)
-The Solr 8 service used to be a 3-node SolrCloud cluster with an external
-ZooKeeper. The collection is one shard, so two of the nodes did no work while
-each held a JVM; per project that was about 1.5 GB of memory for nothing. It is
-now one node with embedded ZooKeeper, the same shape as the Solr 9 build.
-After updating, `ddev restart` does the rest: the `post-start`
-`ddev solrcollection` hook creates the collection on the new node (now with
-`--numShards=1`) and, on that first start, sees the old cluster's volumes,
-reindexes into the new collection and removes them. Later starts skip it.
-
 ### Selenium starts on request
 The Selenium Chrome service is still scaffolded into every project, but behind
 a compose profile, so a plain `ddev start` leaves it off. Before running
@@ -48,7 +38,6 @@ FunctionalJavascript or Nightwatch tests:
 ```bash
 ddev start --profiles=selenium
 ```
-A running one from before the update stops with the next `ddev restart`.
 
 ### Solr version (8 or 9)
 When Solr is enabled, `ddev-setup` asks which major version to scaffold, matching
