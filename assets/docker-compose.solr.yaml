@@ -1,164 +1,78 @@
-# Source: https://github.com/ddev/ddev-contrib/tree/master/docker-compose-services/solr
-
-# DDev Solr Cloud service file.
+# DDev Solr 8 service file: a single SolrCloud node with embedded ZooKeeper.
 #
-# To access Solr after it is installed:
-# - The Solr admin interface will be accessible at:
-#   http://<projectname>.ddev.site:8983
-#   For example, if the project is named "myproject" the hostname will be:
-#   http://myproject.ddev.site:8983
-# - To access the Solr container from the web container use:
-#   ddev-<project>-solr:8983
+# Pinned to Pantheon Search's Solr 8 version (8.11.4) so local matches
+# production. The Solr 9 variant (docker-compose.solr9.yaml) is the same shape.
 #
-# To use this in your own project:
-# 1. Copy this file and the solr (including security.json) directory to your project's ".ddev" directory.
-# 2. For Drupal:
-#      - enable the search_api_solr_admin (this sub-module included in Search API Solr >= 4.2.1)
-#      - create a search server using the Solr Cloud Connector with Basic Auth using username "solr" and password
-#        "SolrRocks".
-#      - press the "Upload Configset" button.
+# One node, not a cluster: this used to be a 3-node cluster with an external
+# ZooKeeper, from the old ddev-contrib recipe. Search API's collection is one
+# shard with one replica, so the other two nodes held nothing and served
+# nothing, yet each was a JVM of its own: per project, the cluster cost three
+# Solr heaps and a ZooKeeper for the work of one. It also needed health-gated
+# startup ordering, because a node booting before the external ZooKeeper
+# answered silently never joined. Embedded ZooKeeper starts inside the node, so
+# there is no race to order around.
 #
-# Startup ordering is enforced with healthchecks + `condition: service_healthy`
-# rather than the bare `depends_on` list form. Compose's list form only waits for
-# a container to *start*, not for the service inside to be *ready*: a Solr node
-# would boot before ZooKeeper was accepting connections, hit its 30s ZK connect
-# timeout, and silently fail to register as a live cloud node. That left fewer
-# live nodes than shards and broke collection creation (numShards > live nodes).
-# The chain below is zoo (ruok) -> solr1 -> solr2/solr3, each gated on real health.
-
+# Conventions are unchanged, so settings.local.solr.append and
+# `ddev solrcollection` work as before: SolrCloud with basic auth (user solr,
+# pass SolrRocks, .ddev/solr/security.json), collection "search", reachable at
+# <project>.ddev.site:8983 and as http://solr:8983 from the web container.
+#
+# To access Solr: the admin interface is at http://<project>.ddev.site:8983.
+#
+# Switching from the 3-node build: run `ddev restart`, and the post-start
+# `ddev solrcollection` hook uploads the configset and recreates the collection
+# on the new node; then reindex (`ddev drush search-api:index`). The old
+# solr1/solr2/solr3/zoo volumes are no longer used and can be removed.
 services:
-  solr1:
-    image: solr:8.11.4
-    container_name: ddev-${DDEV_SITENAME}-solr1
+  solr:
+    image: ${SOLR_BASE_IMAGE:-solr:8.11.4}
+    container_name: ddev-${DDEV_SITENAME}-solr
     expose:
       - 8983
     # These labels ensure this service is discoverable by ddev.
     labels:
       com.ddev.site-name: ${DDEV_SITENAME}
-      com.ddev.approot: $DDEV_APPROOT
+      com.ddev.approot: ${DDEV_APPROOT}
     environment:
-      SOLR_HOST: ddev-${DDEV_SITENAME}-solr1
+      SOLR_HOST: ddev-${DDEV_SITENAME}-solr
       SOLR_PORT: 8983
-      # The pre-trained OpenNLP models require a much bigger buffer.
+      # The pre-trained OpenNLP models require a much bigger buffer; embedded
+      # ZooKeeper runs in this JVM, so it applies there too.
       SOLR_OPTS: -Djute.maxbuffer=50000000
       #SOLR_HEAP: 1g
-      ZK_HOST: ddev-${DDEV_SITENAME}-zoo:2181
-      VIRTUAL_HOST: $DDEV_HOSTNAME
+      # Lets bin/solr commands authenticate once security.json is in place.
+      SOLR_AUTH_TYPE: basic
+      SOLR_AUTHENTICATION_OPTS: -Dbasicauth=solr:SolrRocks
+      VIRTUAL_HOST: ${DDEV_HOSTNAME}
       HTTP_EXPOSE: 8983:8983
-    depends_on:
-      zoo:
-        condition: service_healthy
+    volumes:
+      - .:/mnt/ddev_config
+      - solr:/var/solr
+    # Start once to upload security.json into the embedded ZooKeeper, then run
+    # in the foreground. The ZooKeeper data lives in the volume, so the upload
+    # just refreshes it on later starts.
+    command:
+      - bash
+      - -c
+      - |
+        set -eu -o pipefail
+        docker-entrypoint.sh solr start -c
+        solr zk cp file:/mnt/ddev_config/solr/security.json zk:/security.json -z localhost:9983
+        solr stop > /dev/null
+        exec solr-foreground -c
     healthcheck:
-      # Healthy only once Solr is up AND connected to ZooKeeper (live cloud node).
       test: ["CMD-SHELL", "curl -sf -u solr:SolrRocks http://localhost:8983/api/cluster/nodes || exit 1"]
       interval: 5s
       timeout: 5s
       retries: 24
       start_period: 15s
-    volumes:
-      - .:/mnt/ddev_config
-      - solr1:/var/solr
-    command: bash -c "docker-entrypoint.sh solr zk cp file:/mnt/ddev_config/solr/security.json zk:/security.json && exec solr-foreground"
 
-  solr2:
-    image: solr:8.11.4
-    container_name: ddev-${DDEV_SITENAME}-solr2
-    expose:
-      - 8984
-    labels:
-      com.ddev.site-name: ${DDEV_SITENAME}
-      com.ddev.approot: $DDEV_APPROOT
-    environment:
-      SOLR_HOST: ddev-${DDEV_SITENAME}-solr2
-      SOLR_PORT: 8984
-      # The pre-trained OpenNLP models require a much bigger buffer.
-      SOLR_OPTS: -Djute.maxbuffer=50000000
-      #SOLR_HEAP: 1g
-      ZK_HOST: ddev-${DDEV_SITENAME}-zoo:2181
-      VIRTUAL_HOST: $DDEV_HOSTNAME
-      HTTP_EXPOSE: 8984:8984
-    depends_on:
-      solr1:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf -u solr:SolrRocks http://localhost:8984/api/cluster/nodes || exit 1"]
-      interval: 5s
-      timeout: 5s
-      retries: 24
-      start_period: 15s
-    volumes:
-      - .:/mnt/ddev_config
-      - solr2:/var/solr
-
-  solr3:
-    image: solr:8.11.4
-    container_name: ddev-${DDEV_SITENAME}-solr3
-    expose:
-      - 8985
-    labels:
-      com.ddev.site-name: ${DDEV_SITENAME}
-      com.ddev.approot: $DDEV_APPROOT
-    environment:
-      SOLR_HOST: ddev-${DDEV_SITENAME}-solr3
-      SOLR_PORT: 8985
-      # The pre-trained OpenNLP models require a much bigger buffer.
-      SOLR_OPTS: -Djute.maxbuffer=50000000
-      #SOLR_HEAP: 1g
-      ZK_HOST: ddev-${DDEV_SITENAME}-zoo:2181
-      VIRTUAL_HOST: $DDEV_HOSTNAME
-      HTTP_EXPOSE: 8985:8985
-    depends_on:
-      solr1:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf -u solr:SolrRocks http://localhost:8985/api/cluster/nodes || exit 1"]
-      interval: 5s
-      timeout: 5s
-      retries: 24
-      start_period: 15s
-    volumes:
-      - .:/mnt/ddev_config
-      - solr3:/var/solr
-
-  zoo:
-    # Official Apache Zookeeper image: multi-arch (amd64/arm64).
-    image: zookeeper:3.9
-    container_name: ddev-${DDEV_SITENAME}-zoo
-    hostname: ddev-${DDEV_SITENAME}-zoo
-    expose:
-      - 2181
-    labels:
-      com.ddev.site-name: ${DDEV_SITENAME}
-      com.ddev.approot: $DDEV_APPROOT
-    environment:
-      # The pre-trained OpenNLP models require a much bigger buffer.
-      JVMFLAGS: -Djute.maxbuffer=50000000
-      ZOO_MY_ID: 1
-      # Official image requires the ;clientPort suffix per server entry.
-      ZOO_SERVERS: server.1=ddev-${DDEV_SITENAME}-zoo:2888:3888;2181
-      ZOO_4LW_COMMANDS_WHITELIST: mntr,conf,ruok
-    healthcheck:
-      # Healthy only once ZooKeeper answers the 'ruok' four-letter word with 'imok'.
-      test: ["CMD-SHELL", "echo ruok | nc -w 2 localhost 2181 | grep -q imok"]
-      interval: 5s
-      timeout: 5s
-      retries: 12
-      start_period: 10s
-    volumes:
-      - .:/mnt/ddev_config
-      - zoo:/data
-      - zoolog:/datalog
-
-  # This links the Solr service to the web service defined in the main
-  # docker-compose.yml, allowing applications running inside the web container to
-  # access the Solr service at http://solr:8983
+  # Links Solr into the web container as the short host `solr`, so
+  # http://solr:8983 resolves there. Drupal itself connects via
+  # <project>.ddev.site:8983 (see settings.local.solr.append).
   web:
     links:
-      - solr1:solr
+      - solr:solr
 
 volumes:
-  solr1:
-  solr2:
-  solr3:
-  zoo:
-  zoolog:
+  solr:

@@ -4,9 +4,8 @@
 # ddev-setup prompt (8 -> docker-compose.solr.yaml, 9 -> this file); the chosen
 # file is stamped to .ddev/docker-compose.solr.yaml.
 #
-# Unlike the Solr 8 build (a 3-node external-ZooKeeper cluster), Solr 9 runs a
-# single cloud node with EMBEDDED ZooKeeper (localhost:9983) — which removes the
-# external-ZK startup race the 8 file had to health-gate around. Two Solr-9-only
+# Like the Solr 8 build, Solr 9 runs a single cloud node with EMBEDDED
+# ZooKeeper (localhost:9983). Two Solr-9-only
 # requirements are handled here: SOLR_MODULES must explicitly list the analyzers
 # Search API Solr needs (Solr 9 no longer auto-loads contrib modules), and basic
 # auth is bootstrapped via SOLR_AUTH_TYPE / SOLR_AUTHENTICATION_OPTS.

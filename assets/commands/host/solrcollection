@@ -17,7 +17,9 @@ get_active_server() {
       echo 'There is no local search api server, create one and then run ddev solrcollection, or ddev restart.';
       echo
     else
-      ddev exec drush solr-upload-conf "$server" --alias=search -q
+      # One shard: the local Solr is a single node (docker-compose.solr.yaml),
+      # and the command's default of 3 can't be placed on one.
+      ddev exec drush solr-upload-conf "$server" --numShards=1 --alias=search -q
     fi
   done
 }

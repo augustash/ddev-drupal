@@ -415,8 +415,8 @@ class Ddev {
    * Prompt for the Solr version to scaffold.
    *
    * The answer selects which compose asset installSolr() stamps: 8 is the
-   * legacy 3-node external-ZooKeeper cluster (docker-compose.solr.yaml), 9 the
-   * official single-node ddev-solr build (docker-compose.solr9.yaml). Seeded
+   * single-node Solr 8 build (docker-compose.solr.yaml), 9 the official
+   * single-node ddev-solr build (docker-compose.solr9.yaml). Seeded
    * from the currently-scaffolded version so a re-run defaults to it; else 8.
    *
    * @param \Composer\Script\Event $event
@@ -998,7 +998,7 @@ class Ddev {
         $fileSystem->dumpFile(static::$configPath, Yaml::dump($config));
         static::mirrorAsset(__DIR__ . '/../assets/solr', static::$ddevRoot . 'solr');
         // Scaffold the compose file matching the chosen version to the single
-        // target ddev loads: 8 is the legacy 3-node cluster, 9 the official
+        // target ddev loads: 8 is our single-node Solr 8 build, 9 the official
         // single-node ddev-solr build. copyAsset() force-overwrites, so a
         // version switch lands the selected file's exact bytes.
         $source = $version === '9'

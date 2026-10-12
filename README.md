@@ -31,16 +31,18 @@ to **change** a value (a typo'd client code, a PHP bump, …):
 ddev composer ddev-setup
 ```
 
-### Zookeeper image swap (Solr add-on)
-The `zoo` service moved from the legacy Bitnami image to the official multi-arch
-`zookeeper:3.9` image (fixes the `linux/amd64` platform warning on Apple Silicon).
-The data path changed from `/bitnami/zookeeper` to `/data`, so the existing volume
-must be recreated. After updating the add-on, run:
+### Solr 8 is a single node (Solr add-on)
+The Solr 8 service used to be a 3-node SolrCloud cluster with an external
+ZooKeeper. The collection is one shard, so two of the nodes did no work while
+each held a JVM; per project that was about 1.5 GB of memory for nothing. It is
+now one node with embedded ZooKeeper, the same shape as the Solr 9 build.
+After updating, restart; the `post-start` `ddev solrcollection` hook creates
+the collection on the new node (now with `--numShards=1`). Then reindex, and
+drop the old cluster's volumes:
 ```bash
-ddev stop && docker volume rm "ddev-$(ddev describe -j | jq -r .raw.name)_zoo" && ddev start
+ddev restart && ddev drush search-api:index
+docker volume rm $(docker volume ls -q | grep -E "ddev-$(ddev describe -j | jq -r .raw.name)_(solr[123]|zoo|zoolog)$")
 ```
-The `post-start` `ddev solrcollection` hook will repopulate the configset and
-recreate the collection in the fresh ZK store.
 
 ### Solr version (8 or 9)
 When Solr is enabled, `ddev-setup` asks which major version to scaffold, matching
@@ -48,7 +50,7 @@ Pantheon Search's offering. The chosen file is stamped to
 `.ddev/docker-compose.solr.yaml`; update runs preserve the choice (and re-pin the
 image), so a `composer update` never reverts your version.
 
-  - **8** — the legacy 3-node SolrCloud cluster with external ZooKeeper
+  - **8** — a single SolrCloud node with embedded ZooKeeper
     (`docker-compose.solr.yaml`), pinned to Pantheon's `solr:8.11.4`.
   - **9** — the official single-node
     [ddev-solr](https://github.com/ddev/ddev-solr) build with embedded ZooKeeper
