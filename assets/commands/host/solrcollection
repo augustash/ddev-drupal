@@ -24,6 +24,27 @@ get_active_server() {
   done
 }
 
+# Volumes the 3-node Solr 8 build left behind (solr1-3 and ZooKeeper's).
+# ddev-drupal 1.1.64 replaced it with one node, whose collection starts empty.
+old_cluster_volumes() {
+  docker volume ls -q --filter "name=^ddev-${DDEV_SITENAME}_" | grep -E "_(solr[123]|zoo|zoolog)$"
+}
+
+# Once, on the first start after that switch: fill the new collection, then
+# free what the old cluster held. Later starts find no volumes and skip this.
+migrate_from_cluster() {
+  volumes=$(old_cluster_volumes)
+  if [[ -z $volumes ]]; then
+    return
+  fi
+  echo 'Solr is now a single node: reindexing into its new collection.'
+  ddev exec drush search-api:index -q
+  # Fails harmlessly while an old container still holds one; the next start
+  # tries again.
+  docker volume rm $volumes > /dev/null 2>&1 && echo 'Removed the old Solr cluster volumes.'
+}
+
 ddev exec drush en search_api_solr_admin -y -q
 
 get_active_server;
+migrate_from_cluster;

@@ -36,13 +36,10 @@ The Solr 8 service used to be a 3-node SolrCloud cluster with an external
 ZooKeeper. The collection is one shard, so two of the nodes did no work while
 each held a JVM; per project that was about 1.5 GB of memory for nothing. It is
 now one node with embedded ZooKeeper, the same shape as the Solr 9 build.
-After updating, restart; the `post-start` `ddev solrcollection` hook creates
-the collection on the new node (now with `--numShards=1`). Then reindex, and
-drop the old cluster's volumes:
-```bash
-ddev restart && ddev drush search-api:index
-docker volume rm $(docker volume ls -q | grep -E "ddev-$(ddev describe -j | jq -r .raw.name)_(solr[123]|zoo|zoolog)$")
-```
+After updating, `ddev restart` does the rest: the `post-start`
+`ddev solrcollection` hook creates the collection on the new node (now with
+`--numShards=1`) and, on that first start, sees the old cluster's volumes,
+reindexes into the new collection and removes them. Later starts skip it.
 
 ### Selenium starts on request
 The Selenium Chrome service is still scaffolded into every project, but behind
