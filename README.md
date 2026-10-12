@@ -44,6 +44,15 @@ ddev restart && ddev drush search-api:index
 docker volume rm $(docker volume ls -q | grep -E "ddev-$(ddev describe -j | jq -r .raw.name)_(solr[123]|zoo|zoolog)$")
 ```
 
+### Selenium starts on request
+The Selenium Chrome service is still scaffolded into every project, but behind
+a compose profile, so a plain `ddev start` leaves it off. Before running
+FunctionalJavascript or Nightwatch tests:
+```bash
+ddev start --profiles=selenium
+```
+A running one from before the update stops with the next `ddev restart`.
+
 ### Solr version (8 or 9)
 When Solr is enabled, `ddev-setup` asks which major version to scaffold, matching
 Pantheon Search's offering. The chosen file is stamped to

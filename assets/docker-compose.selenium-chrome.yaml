@@ -1,7 +1,14 @@
 # This file comes from https://github.com/ddev/ddev-selenium-standalone-chrome
 #
+# Started only on request: `ddev start --profiles=selenium`, before running
+# FunctionalJavascript or Nightwatch tests. Most projects have none, and an
+# always-on Chrome cost every project its memory for nothing. The test
+# environment variables in config.selenium-standalone-chrome.yaml stay set
+# either way.
 services:
   selenium-chrome:
+    profiles:
+      - selenium
     image: selenium/standalone-chromium:138.0
     container_name: ddev-${DDEV_SITENAME}-selenium-chrome
     expose:
