@@ -156,6 +156,18 @@ $settings['skip_permissions_hardening'] = TRUE;
 $config['config_split.config_split.dev']['status'] = TRUE;
 
 /**
+ * Stage File Proxy.
+ *
+ * Pulls missing files from live. Set here rather than in the dev split, which
+ * loses the settings whenever someone exports without the split's modules.
+ */
+if ($pantheon_site = getenv('DDEV_PANTHEON_SITE')) {
+  $config['stage_file_proxy.settings']['origin'] = 'https://live-' . $pantheon_site . '.pantheonsite.io';
+  $config['stage_file_proxy.settings']['use_imagecache_root'] = TRUE;
+  $config['stage_file_proxy.settings']['verify'] = TRUE;
+}
+
+/**
  * Email re-route settings.
  */
 $config['reroute_email.settings']['enable'] = TRUE;
