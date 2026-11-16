@@ -1,8 +1,28 @@
 #!/bin/bash
 
-## Description: Run gulp inside the web container
-## Usage: gulp [flags] [args]
-## Example: "ddev gulp --version"
+## Description: Run the custom theme's gulp inside the web container
+## Usage: gulp [task] [flags]
+## Example: "ddev gulp" builds once, "ddev gulp watch" rebuilds on change
 ## ExecRaw: true
 
-gulp -f="web/themes/ash/gulpfile.js" "$@"
+# Finds the theme by its gulpfile. Set GULP_THEME (web_environment in
+# .ddev/config.yaml) when more than one custom theme has a gulpfile.
+themes="/var/www/html/${DDEV_DOCROOT:-web}/themes/custom"
+
+if [ -n "${GULP_THEME:-}" ]; then
+  dir="$themes/$GULP_THEME"
+else
+  found=("$themes"/*/gulpfile.js)
+  if [ ! -e "${found[0]}" ]; then
+    echo "No gulpfile.js found under $themes." >&2
+    exit 1
+  fi
+  if [ "${#found[@]}" -gt 1 ]; then
+    echo "Several themes have a gulpfile.js; set GULP_THEME to one of:" >&2
+    for f in "${found[@]}"; do echo "  $(basename "$(dirname "$f")")" >&2; done
+    exit 1
+  fi
+  dir=$(dirname "${found[0]}")
+fi
+
+cd "$dir" && exec npx gulp "$@"
