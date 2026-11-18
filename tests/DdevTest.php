@@ -146,8 +146,21 @@ final class DdevTest extends DdevTestCase {
     file_put_contents($dir . '/config.yaml', "name: site\ndocroot: web\n");
 
     $before = self::call('fingerprint');
-    file_put_contents($dir . '/docker-compose.browsersync.yaml', "version: '3'\n");
+    file_put_contents($dir . '/config.browsersync.yaml', "web_extra_exposed_ports: []\n");
     $this->assertNotSame($before, self::call('fingerprint'));
+  }
+
+  public function testInstallBrowsersyncReplacesRetiredComposeFile(): void {
+    $dir = $this->setConfigDir();
+    $this->setManagedRoots($dir);
+    file_put_contents($dir . '/docker-compose.browsersync.yaml', "services: {}\n");
+
+    self::call('installBrowsersync');
+
+    $this->assertFileDoesNotExist($dir . '/docker-compose.browsersync.yaml');
+    $config = \Symfony\Component\Yaml\Yaml::parseFile($dir . '/config.browsersync.yaml');
+    $this->assertSame(3000, $config['web_extra_exposed_ports'][0]['container_port']);
+    $this->assertSame(3001, $config['web_extra_exposed_ports'][0]['https_port']);
   }
 
   // ---------------------------------------------------------------------------

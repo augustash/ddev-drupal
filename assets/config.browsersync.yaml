@@ -1,0 +1,8 @@
+# browser-sync for the theme's gulp watch, run inside the web container.
+# The router publishes it on https://<project>.ddev.site:3001 and terminates
+# TLS, so browser-sync itself serves plain http on container port 3000.
+web_extra_exposed_ports:
+  - name: browsersync
+    container_port: 3000
+    http_port: 3002
+    https_port: 3001

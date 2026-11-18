@@ -783,16 +783,27 @@ class Ddev {
   }
 
   /**
-   * Add the BrowserSync docker-compose service.
+   * Publish BrowserSync's port through the ddev router.
+   *
+   * Replaces docker-compose.browsersync.yaml, whose HTTP_EXPOSE override named
+   * MailHog-era variables and only exposed the port inside docker.
    */
   protected static function copyBrowsersync(Event $event) {
     try {
-      static::copyAsset(__DIR__ . '/../assets/docker-compose.browsersync.yaml', static::$ddevRoot . 'docker-compose.browsersync.yaml');
-      $event->getIO()->info('<info>docker-compose.browsersync.yaml added.</info>');
+      static::installBrowsersync();
+      $event->getIO()->info('<info>config.browsersync.yaml added.</info>');
     }
     catch (\Error $e) {
       $event->getIO()->error('<error>' . $e->getMessage() . '</error>');
     }
+  }
+
+  /**
+   * Write config.browsersync.yaml and remove the compose file it replaces.
+   */
+  protected static function installBrowsersync() {
+    (new Filesystem())->remove(static::$ddevRoot . 'docker-compose.browsersync.yaml');
+    static::copyAsset(__DIR__ . '/../assets/config.browsersync.yaml', static::$ddevRoot . 'config.browsersync.yaml');
   }
 
   /**
@@ -1282,6 +1293,8 @@ class Ddev {
       static::$configPath,
       static::$gitIgnorePath,
       $webRoot . static::$settingsLocalPath,
+      static::$ddevRoot . 'config.browsersync.yaml',
+      // Retired; listed so removing it counts as a change.
       static::$ddevRoot . 'docker-compose.browsersync.yaml',
       static::$ddevRoot . 'docker-compose.selenium-chrome.yaml',
       static::$ddevRoot . 'config.selenium-standalone-chrome.yaml',
