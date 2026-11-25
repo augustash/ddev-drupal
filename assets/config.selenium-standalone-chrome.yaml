@@ -1,18 +1,27 @@
 # This file comes from https://github.com/ddev/ddev-selenium-standalone-chrome
 #
+# Core's Nightwatch runner is a Yarn 4 project (packageManager: yarn@4.x),
+# which needs Corepack; without it every run stops at "global Yarn is 1.22".
+corepack_enable: true
+
+# Hosts are the project's own container names, not the shared `web` and
+# `selenium-chrome` aliases: every running project answers to those on ddev's
+# shared network, so with this project's Chrome stopped (it is started only on
+# request) tests silently drove another project's browser against that
+# project's site. A unique name fails loudly instead.
 web_environment:
   - BROWSERTEST_OUTPUT_DIRECTORY=/tmp
   - BROWSERTEST_OUTPUT_BASE_URL=${DDEV_PRIMARY_URL}
-  - SIMPLETEST_BASE_URL=http://web
+  - SIMPLETEST_BASE_URL=http://ddev-${DDEV_SITENAME}-web
   - SIMPLETEST_DB=mysql://db:db@db/db
   # Use disable-dev-shm-usage instead of setting shm_usage
   # https://developers.google.com/web/tools/puppeteer/troubleshooting#tips
   # The format of chromeOptions is defined at https://chromedriver.chromium.org/capabilities
-  - MINK_DRIVER_ARGS_WEBDRIVER=[\"chrome\", {\"browserName\":\"chrome\",\"goog:chromeOptions\":{\"w3c\":true,\"args\":[\"--disable-dev-shm-usage\",\"--disable-gpu\",\"--headless\",\"--dns-prefetch-disable\"]}}, \"http://selenium-chrome:4444/wd/hub\"]
+  - MINK_DRIVER_ARGS_WEBDRIVER=[\"chrome\", {\"browserName\":\"chrome\",\"goog:chromeOptions\":{\"w3c\":true,\"args\":[\"--disable-dev-shm-usage\",\"--disable-gpu\",\"--headless\",\"--dns-prefetch-disable\"]}}, \"http://ddev-${DDEV_SITENAME}-selenium-chrome:4444/wd/hub\"]
   # Nightwatch
-  - DRUPAL_TEST_BASE_URL=http://web
+  - DRUPAL_TEST_BASE_URL=http://ddev-${DDEV_SITENAME}-web
   - DRUPAL_TEST_DB_URL=mysql://db:db@db/db
-  - DRUPAL_TEST_WEBDRIVER_HOSTNAME=selenium-chrome
+  - DRUPAL_TEST_WEBDRIVER_HOSTNAME=ddev-${DDEV_SITENAME}-selenium-chrome
   - DRUPAL_TEST_WEBDRIVER_PORT=4444
   - DRUPAL_TEST_WEBDRIVER_PATH_PREFIX=/wd/hub
   - DRUPAL_TEST_WEBDRIVER_W3C=true
@@ -23,5 +32,5 @@ web_environment:
   - DRUPAL_NIGHTWATCH_IGNORE_DIRECTORIES=node_modules,vendor,.*,sites/*/files,sites/*/private,sites/simpletest
   - DRUPAL_NIGHTWATCH_OUTPUT=reports/nightwatch
   # DTT
-  - DTT_BASE_URL=http://web
-  - DTT_MINK_DRIVER_ARGS=[\"chrome\", {\"browserName\":\"chrome\",\"goog:chromeOptions\":{\"w3c\":true,\"args\":[\"--disable-dev-shm-usage\",\"--disable-gpu\",\"--headless\",\"--dns-prefetch-disable\"]}}, \"http://selenium-chrome:4444/wd/hub\"]
+  - DTT_BASE_URL=http://ddev-${DDEV_SITENAME}-web
+  - DTT_MINK_DRIVER_ARGS=[\"chrome\", {\"browserName\":\"chrome\",\"goog:chromeOptions\":{\"w3c\":true,\"args\":[\"--disable-dev-shm-usage\",\"--disable-gpu\",\"--headless\",\"--dns-prefetch-disable\"]}}, \"http://ddev-${DDEV_SITENAME}-selenium-chrome:4444/wd/hub\"]
